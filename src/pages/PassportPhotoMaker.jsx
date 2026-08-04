@@ -5,7 +5,7 @@ import {
   Image as ImageIcon, Loader2, Sliders, Upload, Undo2, Maximize2,
   Minimize2, ZoomIn, RotateCw, Grid, Printer, FileImage, Palette,
   ArrowLeft, ArrowRight, ChevronRight, ChevronLeft, Contrast, Droplet, Eye,
-  X, AlertCircle, Shield, Thermometer, Zap, Users, Target, Sun, Eraser, CheckCircle
+  X, AlertCircle, Shield, Thermometer, Zap, Users, Target, Sun, Eraser, CheckCircle, Type, Calendar
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SEO from '../pages/SEO';
@@ -37,8 +37,6 @@ const getAspectRatioString = (width, height) => {
 }
 
 export default function PassportPhotoMaker() {
-  // REMOVED JS MEDIA QUERIES (isMobile, isTablet) TO FIX CLS
-
   const [uploadedImage, setUploadedImage] = useState(null)
   const [bgRemovedResult, setBgRemovedResult] = useState(null)
   const [cropResult, setCropResult] = useState(null)
@@ -50,7 +48,6 @@ export default function PassportPhotoMaker() {
   const [currentStep, setCurrentStep] = useState(1)
   const [imageLoaded, setImageLoaded] = useState(false)
 
-  // Default to true. We will use CSS to hide/show on mobile to prevent CLS
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true)
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false)
   const [bgColor, setBgColor] = useState('#ffffff')
@@ -81,6 +78,12 @@ export default function PassportPhotoMaker() {
   const [shadows, setShadows] = useState(0)
   const [exposure, setExposure] = useState(0)
   const [vibrance, setVibrance] = useState(0)
+
+  // --- NAME & DATE OVERLAY STATE ---
+  const [enableNameDate, setEnableNameDate] = useState(false)
+  const [personName, setPersonName] = useState('')
+  const [photoDate, setPhotoDate] = useState('')
+  const [fontSize, setFontSize] = useState(16)
 
   const [passportWidth, setPassportWidth] = useState(35)
   const [passportHeight, setPassportHeight] = useState(45)
@@ -117,7 +120,7 @@ export default function PassportPhotoMaker() {
     { id: 1, label: 'Upload', icon: Upload, desc: 'Upload photo' },
     { id: 2, label: 'Remove BG', icon: Wand2, desc: 'AI background' },
     { id: 3, label: 'Crop', icon: CropIcon, desc: 'Crop to size' },
-    { id: 4, label: 'Adjust', icon: Sliders, desc: 'Edit photo' },
+    { id: 4, label: 'Adjust', icon: Sliders, desc: 'Edit & Name/Date' },
     { id: 5, label: 'Download', icon: Download, desc: 'Save photo' },
     { id: 6, label: 'Print', icon: Layers, desc: 'Print sheet' }
   ], [])
@@ -133,6 +136,7 @@ export default function PassportPhotoMaker() {
     setBrightness(0); setContrast(0); setSaturation(0); setSharpness(0);
     setHighlights(0); setShadows(0); setExposure(0); setVibrance(0);
     setRotation(0); setZoom(100); setError(null);
+    setEnableNameDate(false); setPersonName(''); setPhotoDate(''); setFontSize(16);
   }, [])
 
   const handleStartOver = useCallback(() => {
@@ -159,9 +163,11 @@ export default function PassportPhotoMaker() {
     if (!canvasRef.current) return
     if (!displayImageRef.current) { setImageLoaded(false); return }
     const canvas = canvasRef.current; const ctx = canvas.getContext('2d'); const img = displayImageRef.current; const dpr = window.devicePixelRatio || 1
+
     canvas.width = img.width * dpr; canvas.height = img.height * dpr; canvas.style.width = `${img.width}px`; canvas.style.height = `${img.height}px`
     ctx.scale(dpr, dpr); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.clearRect(0, 0, img.width, img.height)
     ctx.save()
+
     if (rotation !== 0 && currentStep >= 4) {
       ctx.translate(img.width / 2, img.height / 2); ctx.rotate(rotation * Math.PI / 180); ctx.translate(-img.width / 2, -img.height / 2)
     }
@@ -177,20 +183,61 @@ export default function PassportPhotoMaker() {
       if (vibrance !== 0) filters.push(`saturate(${100 + vibrance * 0.3}%)`)
       ctx.filter = filters.join(' ')
     }
+
     ctx.drawImage(img, 0, 0)
+
     if (backgroundRemoved && bgColor && !isEraserMode) {
       ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = bgColor; ctx.fillRect(0, 0, img.width, img.height); ctx.globalCompositeOperation = 'source-over'
     }
+
+    // --- RENDER NAME & DATE OVERLAY IF ENABLED ---
+    if (enableNameDate && (personName || photoDate) && currentStep >= 4) {
+      ctx.restore() // Restore filters so text box isn't distorted by color adjustments
+      ctx.save()
+
+      const boxHeight = Math.max(40, Math.round(img.height * 0.16))
+      const boxY = img.height - boxHeight
+
+      // White Bottom Banner
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, boxY, img.width, boxHeight)
+
+      // Top Border Line for Banner
+      ctx.strokeStyle = '#D1D5DB'
+      ctx.lineWidth = Math.max(1, Math.round(img.width * 0.003))
+      ctx.beginPath()
+      ctx.moveTo(0, boxY)
+      ctx.lineTo(img.width, boxY)
+      ctx.stroke()
+
+      // Text Formatting
+      const scaledFontSize = Math.round((img.width / 350) * fontSize)
+      ctx.fillStyle = '#000000'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = `bold ${scaledFontSize}px sans-serif`
+
+      if (personName && photoDate) {
+        ctx.fillText(personName.toUpperCase(), img.width / 2, boxY + boxHeight * 0.33)
+        ctx.font = `500 ${Math.round(scaledFontSize * 0.85)}px sans-serif`
+        ctx.fillText(photoDate, img.width / 2, boxY + boxHeight * 0.72)
+      } else if (personName) {
+        ctx.fillText(personName.toUpperCase(), img.width / 2, boxY + boxHeight / 2)
+      } else if (photoDate) {
+        ctx.fillText(photoDate, img.width / 2, boxY + boxHeight / 2)
+      }
+    }
+
     ctx.restore()
     try { setPreviewUrl(canvas.toDataURL('image/png', 1.0)); setImageLoaded(true); setError(null) } catch (err) { setImageLoaded(false) }
-  }, [rotation, brightness, contrast, saturation, sharpness, highlights, shadows, exposure, vibrance, backgroundRemoved, bgColor, currentStep, isEraserMode])
+  }, [rotation, brightness, contrast, saturation, sharpness, highlights, shadows, exposure, vibrance, backgroundRemoved, bgColor, currentStep, isEraserMode, enableNameDate, personName, photoDate, fontSize])
 
   useEffect(() => {
     if (currentStep >= 4 && displayImageRef.current) {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = requestAnimationFrame(() => updateCanvas())
     }
-  }, [rotation, brightness, contrast, saturation, sharpness, highlights, shadows, exposure, vibrance, currentStep, updateCanvas])
+  }, [rotation, brightness, contrast, saturation, sharpness, highlights, shadows, exposure, vibrance, enableNameDate, personName, photoDate, fontSize, currentStep, updateCanvas])
 
   const renderImageToCanvas = useCallback((imageSrc) => {
     if (!canvasRef.current || !imageSrc) return
@@ -414,17 +461,67 @@ export default function PassportPhotoMaker() {
     e.stopPropagation(); const touch = e.touches[0]; setIsDragging(true); const mousePos = getMousePositionInImage(touch.clientX, touch.clientY); setDragStart({ x: mousePos.x, y: mousePos.y }); setDragStartCropPos({ x: cropPosition.x, y: cropPosition.y })
   }, [isCropMode, cropPosition, cropSize, getMousePositionInImage])
 
-  const applyCrop = useCallback(() => {
-    const sourceImage = bgRemovedResult || uploadedImage?.preview; if (!sourceImage) return toast.error('No image to crop')
-    setIsProcessing(true); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const img = new Image()
-    img.onload = () => {
-      const cropW = Math.round(cropSize.width); const cropH = Math.round(cropSize.height)
-      canvas.width = cropW; canvas.height = cropH; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, Math.round(cropPosition.x), Math.round(cropPosition.y), cropW, cropH, 0, 0, cropW, cropH)
-      const croppedImage = canvas.toDataURL('image/png', 1.0); setCropResult(croppedImage); setOriginalImageDimensions({ width: cropW, height: cropH }); setCropSize({ width: cropW, height: cropH }); setCropPosition({ x: 0, y: 0 }); renderImageToCanvas(croppedImage); setIsProcessing(false); setCurrentStep(4); setIsCropMode(false); toast.success('Cropped successfully!', { icon: '✂️' })
-    }
-    img.onerror = () => { toast.error('Failed to crop'); setIsProcessing(false) }; img.src = sourceImage
-  }, [cropPosition, cropSize, renderImageToCanvas, bgRemovedResult, uploadedImage])
+const applyCrop = useCallback(() => {
+  const sourceImage = bgRemovedResult || uploadedImage?.preview; 
+  if (!sourceImage) return toast.error('No image to crop');
 
+  setIsProcessing(true);
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+
+  img.onload = () => {
+    // 1. Get current scale factor based on rendered image vs original dimensions
+    const scaleX = img.width / originalImageDimensions.width;
+    const scaleY = img.height / originalImageDimensions.height;
+
+    // 2. Map the selection coordinates to the actual full-size image
+    const realCropX = Math.round(cropPosition.x * scaleX);
+    const realCropY = Math.round(cropPosition.y * scaleY);
+    const realCropWidth = Math.round(cropSize.width * scaleX);
+    const realCropHeight = Math.round(cropSize.height * scaleY);
+
+    // Bound checks
+    const safeX = Math.max(0, realCropX);
+    const safeY = Math.max(0, realCropY);
+    const safeWidth = Math.min(img.width - safeX, realCropWidth);
+    const safeHeight = Math.min(img.height - safeY, realCropHeight);
+
+    // 3. Create cropped canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = safeWidth;
+    canvas.height = safeHeight;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.drawImage(
+      img,
+      safeX, safeY, safeWidth, safeHeight, // Source box (Full resolution)
+      0, 0, safeWidth, safeHeight         // Destination box (Canvas)
+    );
+
+    const croppedImage = canvas.toDataURL('image/png', 1.0);
+
+    setCropResult(croppedImage);
+    setOriginalImageDimensions({ width: safeWidth, height: safeHeight });
+    setCropSize({ width: safeWidth, height: safeHeight });
+    setCropPosition({ x: 0, y: 0 });
+
+    renderImageToCanvas(croppedImage);
+    setIsProcessing(false);
+    setCurrentStep(4);
+    setIsCropMode(false);
+    toast.success('Cropped successfully!', { icon: '✂️' });
+  };
+
+  img.onerror = () => {
+    toast.error('Failed to crop');
+    setIsProcessing(false);
+  };
+
+  img.src = sourceImage;
+}, [cropPosition, cropSize, originalImageDimensions, renderImageToCanvas, bgRemovedResult, uploadedImage]);
   const resetCrop = useCallback(() => {
     if (originalImageDimensions.width === 0) return toast.error('No image to reset crop')
     const centered = getCenteredCrop(originalImageDimensions.width, originalImageDimensions.height); setCropSize({ width: centered.width, height: centered.height }); setCropPosition({ x: centered.x, y: centered.y }); setCropAspectRatio(null); setIsDragging(false); setIsResizing(false); setResizeDirection(null); toast.success('Crop reset to center')
@@ -566,7 +663,7 @@ export default function PassportPhotoMaker() {
               <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center shadow-sm border border-white shrink-0"><Sliders className="w-5 h-5 text-blue-600" aria-hidden="true" /></div>
               <div>
                 <h3 className="text-lg md:text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Fine-Tune Your Photo</h3>
-                <p className="text-xs md:text-sm text-gray-500">Real-time preview. Adjust lighting and color from the right panel.</p>
+                <p className="text-xs md:text-sm text-gray-500">Real-time preview. Adjust lighting, color, or add Name & Date overlay.</p>
               </div>
             </div>
             <div className="relative w-full flex-1 bg-white/80 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-blue-500/5 border border-white flex items-center justify-center group z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
@@ -706,7 +803,98 @@ export default function PassportPhotoMaker() {
           {uploadedImage && isRightPanelOpen && (
             <div className={`bg-white/95 backdrop-blur-sm border-l border-gray-200/80 overflow-y-auto flex-shrink-0 p-4 space-y-4 custom-scrollbar hidden md:block lg:w-72 w-64`}>
               {currentStep === 2 && backgroundRemoved && !isEraserMode && (<PanelSection title="Background Color" icon={Palette} defaultOpen={true}><BackgroundColorSection bgColor={bgColor} onColorChange={handleSetBackgroundColor} onCustomColorChange={handleSetBackgroundColor} onContinue={handleContinueToCrop} showContinue={true} /></PanelSection>)}
-              {currentStep === 4 && (<PanelSection title="Image Properties" icon={Sliders}><div className="space-y-3"><SliderControl label="Zoom" value={zoom} onChange={setZoom} min={50} max={200} icon={ZoomIn} format={(v) => `${v}%`} resetValue={100} /><SliderControl label="Rotation" value={rotation} onChange={setRotation} min={-180} max={180} icon={RotateCw} format={(v) => `${v}°`} resetValue={0} /><SliderControl label="Brightness" value={brightness} onChange={setBrightness} min={-100} max={100} icon={Sun} resetValue={0} /><SliderControl label="Contrast" value={contrast} onChange={setContrast} min={-100} max={100} icon={Contrast} resetValue={0} /><SliderControl label="Saturation" value={saturation} onChange={setSaturation} min={-100} max={100} icon={Droplet} resetValue={0} /><SliderControl label="Sharpness" value={sharpness} onChange={setSharpness} min={0} max={100} icon={Eye} format={(v) => `${v}%`} resetValue={0} /><SliderControl label="Highlights" value={highlights} onChange={setHighlights} min={-100} max={100} icon={Zap} resetValue={0} /><SliderControl label="Shadows" value={shadows} onChange={setShadows} min={-100} max={100} icon={Shield} resetValue={0} /><SliderControl label="Exposure" value={exposure} onChange={setExposure} min={-50} max={50} icon={Thermometer} resetValue={0} /><SliderControl label="Vibrance" value={vibrance} onChange={setVibrance} min={-100} max={100} icon={Sparkles} resetValue={0} /></div></PanelSection>)}
+              {currentStep === 4 && (
+                <>
+                  {/* --- NAME & DATE OVERLAY TAB --- */}
+                  <PanelSection title="Name & Date Overlay" icon={Type} defaultOpen={true}>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          <Type className="w-3.5 h-3.5 text-blue-600" /> Enable Caption Box
+                        </label>
+                        <button
+                          onClick={() => setEnableNameDate(!enableNameDate)}
+                          className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${enableNameDate ? 'bg-blue-600' : 'bg-gray-300'}`}
+                          role="switch"
+                          aria-checked={enableNameDate}
+                          aria-label="Toggle Name and Date overlay"
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${enableNameDate ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+
+                      {enableNameDate && (
+                        <div className="space-y-3 pt-2 border-t border-gray-100 animate-in fade-in duration-300">
+                          <div>
+                            <label className="text-xs font-semibold text-gray-600 block mb-1">Full Name</label>
+                            <input
+                              type="text"
+                              value={personName}
+                              onChange={(e) => setPersonName(e.target.value)}
+                              placeholder="e.g. RAHUL SHARMA"
+                              className="w-full px-2.5 py-1.5 text-xs font-semibold uppercase border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-xs font-semibold text-gray-600">Date of Photo (DOP)</label>
+                              <button
+                                onClick={() => {
+                                  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+                                  setPhotoDate(today)
+                                }}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded"
+                              >
+                                Insert Today
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={photoDate}
+                              onChange={(e) => setPhotoDate(e.target.value)}
+                              placeholder="e.g. 15-08-2024"
+                              className="w-full px-2.5 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-xs font-semibold text-gray-600">Font Size</label>
+                              <span className="text-[10px] font-mono text-gray-500">{fontSize}px</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="10"
+                              max="26"
+                              value={fontSize}
+                              onChange={(e) => setFontSize(Number(e.target.value))}
+                              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+
+                          <p className="text-[10px] text-gray-400 italic">Adds a standard white caption box required for exam & government forms.</p>
+                        </div>
+                      )}
+                    </div>
+                  </PanelSection>
+
+                  <PanelSection title="Image Properties" icon={Sliders}>
+                    <div className="space-y-3">
+                      <SliderControl label="Zoom" value={zoom} onChange={setZoom} min={50} max={200} icon={ZoomIn} format={(v) => `${v}%`} resetValue={100} />
+                      <SliderControl label="Rotation" value={rotation} onChange={setRotation} min={-180} max={180} icon={RotateCw} format={(v) => `${v}°`} resetValue={0} />
+                      <SliderControl label="Brightness" value={brightness} onChange={setBrightness} min={-100} max={100} icon={Sun} resetValue={0} />
+                      <SliderControl label="Contrast" value={contrast} onChange={setContrast} min={-100} max={100} icon={Contrast} resetValue={0} />
+                      <SliderControl label="Saturation" value={saturation} onChange={setSaturation} min={-100} max={100} icon={Droplet} resetValue={0} />
+                      <SliderControl label="Sharpness" value={sharpness} onChange={setSharpness} min={0} max={100} icon={Eye} format={(v) => `${v}%`} resetValue={0} />
+                      <SliderControl label="Highlights" value={highlights} onChange={setHighlights} min={-100} max={100} icon={Zap} resetValue={0} />
+                      <SliderControl label="Shadows" value={shadows} onChange={setShadows} min={-100} max={100} icon={Shield} resetValue={0} />
+                      <SliderControl label="Exposure" value={exposure} onChange={setExposure} min={-50} max={50} icon={Thermometer} resetValue={0} />
+                      <SliderControl label="Vibrance" value={vibrance} onChange={setVibrance} min={-100} max={100} icon={Sparkles} resetValue={0} />
+                    </div>
+                  </PanelSection>
+                </>
+              )}
               {currentStep === 3 && (
                 <>
                   <PanelSection title="Crop Settings" icon={CropIcon}>
