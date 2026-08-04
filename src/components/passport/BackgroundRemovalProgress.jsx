@@ -8,6 +8,7 @@ export const BackgroundRemovalProgress = ({ progress, stage, isComplete }) => {
   const offset = circumference - (progress / 100) * circumference;
 
   const stages = [
+    
     { id: 'analyzing', label: 'Analyzing Image...', icon: Search },
     { id: 'detecting', label: 'Detecting Person...', icon: Users },
     { id: 'removing', label: 'Removing Background...', icon: Wand2 },
