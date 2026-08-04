@@ -62,6 +62,7 @@ const Home = () => {
                 <Upload className="w-5 h-5" />
                 Upload Photo Free
               </button> */}
+
               <Link 
                 to="/passport-photo-maker"
                 className="w-full sm:w-auto px-8 py-4 bg-white text-gray-800 rounded-2xl font-bold text-lg shadow-lg border border-gray-100 hover:bg-gray-50 hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2"

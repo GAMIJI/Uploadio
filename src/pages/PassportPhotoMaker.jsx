@@ -5,14 +5,14 @@ import {
   Image as ImageIcon, Loader2, Sliders, Upload, Undo2, Maximize2,
   Minimize2, ZoomIn, RotateCw, Grid, Printer, FileImage, Palette,
   ArrowLeft, ArrowRight, ChevronRight, ChevronLeft, Contrast, Droplet, Eye,
-  X, AlertCircle, Shield, Thermometer, Zap, Users, Target, Sun, Eraser, CheckCircle, Type, Calendar
+  X, AlertCircle, Shield, Thermometer, Zap, Users, Target, Sun, Eraser, CheckCircle, Type, ChevronUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SEO from '../pages/SEO';
 
-// LAZY LOAD: Heavy print sheet generator to remove it from initial JS payload
+// LAZY LOAD: Heavy print sheet generator
 const PrintSheetGenerator = lazy(() => import('../components/PrintSheetGenerator'));
-// LAZY LOAD: Uploader to improve Initial Paint speed
+// LAZY LOAD: Uploader
 const ImageUploader = lazy(() => import('../components/ImageUploader'));
 
 // IMPORT SEPARATED UI PRIMITIVES
@@ -120,7 +120,7 @@ export default function PassportPhotoMaker() {
     { id: 1, label: 'Upload', icon: Upload, desc: 'Upload photo' },
     { id: 2, label: 'Remove BG', icon: Wand2, desc: 'AI background' },
     { id: 3, label: 'Crop', icon: CropIcon, desc: 'Crop to size' },
-    { id: 4, label: 'Adjust', icon: Sliders, desc: 'Edit & Name/Date' },
+    { id: 4, label: 'Adjust', icon: Sliders, desc: 'Edit & Overlay' },
     { id: 5, label: 'Download', icon: Download, desc: 'Save photo' },
     { id: 6, label: 'Print', icon: Layers, desc: 'Print sheet' }
   ], [])
@@ -147,7 +147,7 @@ export default function PassportPhotoMaker() {
     setInitialCropSet(false); setIsEraserMode(false); setIsErasing(false);
     setEraserHistory([]); resetAllAdjustments();
     if (canvasRef.current) canvasRef.current.getContext('2d').clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-    toast.success('Started over. Please upload a new photo.', { icon: '🔄' })
+    toast.success('Started over.', { icon: '🔄' })
   }, [cleanup, resetAllAdjustments])
 
   const initCanvas = useCallback(() => {
@@ -192,17 +192,15 @@ export default function PassportPhotoMaker() {
 
     // --- RENDER NAME & DATE OVERLAY IF ENABLED ---
     if (enableNameDate && (personName || photoDate) && currentStep >= 4) {
-      ctx.restore() // Restore filters so text box isn't distorted by color adjustments
+      ctx.restore()
       ctx.save()
 
       const boxHeight = Math.max(40, Math.round(img.height * 0.16))
       const boxY = img.height - boxHeight
 
-      // White Bottom Banner
       ctx.fillStyle = '#FFFFFF'
       ctx.fillRect(0, boxY, img.width, boxHeight)
 
-      // Top Border Line for Banner
       ctx.strokeStyle = '#D1D5DB'
       ctx.lineWidth = Math.max(1, Math.round(img.width * 0.003))
       ctx.beginPath()
@@ -210,7 +208,6 @@ export default function PassportPhotoMaker() {
       ctx.lineTo(img.width, boxY)
       ctx.stroke()
 
-      // Text Formatting
       const scaledFontSize = Math.round((img.width / 350) * fontSize)
       ctx.fillStyle = '#000000'
       ctx.textAlign = 'center'
@@ -259,7 +256,7 @@ export default function PassportPhotoMaker() {
   const handleImageUpload = useCallback((image) => {
     if (!image || !image.preview) return toast.error('Invalid image')
     setUploadedImage(image); setBgRemovedResult(null); setCropResult(null); setBackgroundRemoved(false); setShowPrintSheet(false); setImageLoaded(false); setCurrentStep(2); setIsCropMode(false); setIsEraserMode(false); setEditedImage(null)
-    renderImageToCanvas(image.preview); toast.success('Photo uploaded successfully!', { icon: '📸' })
+    renderImageToCanvas(image.preview); toast.success('Photo uploaded!', { icon: '📸' })
   }, [renderImageToCanvas])
 
   const goToStep = useCallback((step) => {
@@ -307,9 +304,9 @@ export default function PassportPhotoMaker() {
       if (!transparentImage) throw new Error('Background removal returned no result')
       setBgRemovedResult(transparentImage); setBackgroundRemoved(true); renderImageToCanvas(transparentImage)
       setRemovalProgress(100); setRemovalStage('complete'); setIsRemovalComplete(true)
-      setTimeout(() => setShowProgressOverlay(false), 1000); toast.success('Background removed successfully!', { icon: '✨' })
+      setTimeout(() => setShowProgressOverlay(false), 1000); toast.success('Background removed!', { icon: '✨' })
     } catch (error) {
-      toast.error('Failed to remove background. Please try again.'); setShowProgressOverlay(false)
+      toast.error('Failed to remove background.'); setShowProgressOverlay(false)
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
     } finally {
       setIsProcessing(false)
@@ -318,7 +315,7 @@ export default function PassportPhotoMaker() {
 
   const handleContinueToCrop = useCallback(() => { if (backgroundRemoved) { setIsEraserMode(false); goToStep(3) } }, [backgroundRemoved, goToStep])
 
-  // ERASER LOGIC...
+  // ERASER LOGIC
   useEffect(() => {
     if (isEraserMode && eraserCanvasRef.current && bgRemovedResult) {
       const canvas = eraserCanvasRef.current; const ctx = canvas.getContext('2d'); const img = new Image(); img.crossOrigin = 'anonymous';
@@ -461,73 +458,70 @@ export default function PassportPhotoMaker() {
     e.stopPropagation(); const touch = e.touches[0]; setIsDragging(true); const mousePos = getMousePositionInImage(touch.clientX, touch.clientY); setDragStart({ x: mousePos.x, y: mousePos.y }); setDragStartCropPos({ x: cropPosition.x, y: cropPosition.y })
   }, [isCropMode, cropPosition, cropSize, getMousePositionInImage])
 
-const applyCrop = useCallback(() => {
-  const sourceImage = bgRemovedResult || uploadedImage?.preview; 
-  if (!sourceImage) return toast.error('No image to crop');
+  const applyCrop = useCallback(() => {
+    const sourceImage = bgRemovedResult || uploadedImage?.preview; 
+    if (!sourceImage) return toast.error('No image to crop');
 
-  setIsProcessing(true);
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
+    setIsProcessing(true);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
 
-  img.onload = () => {
-    // 1. Get current scale factor based on rendered image vs original dimensions
-    const scaleX = img.width / originalImageDimensions.width;
-    const scaleY = img.height / originalImageDimensions.height;
+    img.onload = () => {
+      const scaleX = img.width / originalImageDimensions.width;
+      const scaleY = img.height / originalImageDimensions.height;
 
-    // 2. Map the selection coordinates to the actual full-size image
-    const realCropX = Math.round(cropPosition.x * scaleX);
-    const realCropY = Math.round(cropPosition.y * scaleY);
-    const realCropWidth = Math.round(cropSize.width * scaleX);
-    const realCropHeight = Math.round(cropSize.height * scaleY);
+      const realCropX = Math.round(cropPosition.x * scaleX);
+      const realCropY = Math.round(cropPosition.y * scaleY);
+      const realCropWidth = Math.round(cropSize.width * scaleX);
+      const realCropHeight = Math.round(cropSize.height * scaleY);
 
-    // Bound checks
-    const safeX = Math.max(0, realCropX);
-    const safeY = Math.max(0, realCropY);
-    const safeWidth = Math.min(img.width - safeX, realCropWidth);
-    const safeHeight = Math.min(img.height - safeY, realCropHeight);
+      const safeX = Math.max(0, realCropX);
+      const safeY = Math.max(0, realCropY);
+      const safeWidth = Math.min(img.width - safeX, realCropWidth);
+      const safeHeight = Math.min(img.height - safeY, realCropHeight);
 
-    // 3. Create cropped canvas
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = safeWidth;
-    canvas.height = safeHeight;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = safeWidth;
+      canvas.height = safeHeight;
 
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
-    ctx.drawImage(
-      img,
-      safeX, safeY, safeWidth, safeHeight, // Source box (Full resolution)
-      0, 0, safeWidth, safeHeight         // Destination box (Canvas)
-    );
+      ctx.drawImage(
+        img,
+        safeX, safeY, safeWidth, safeHeight,
+        0, 0, safeWidth, safeHeight
+      );
 
-    const croppedImage = canvas.toDataURL('image/png', 1.0);
+      const croppedImage = canvas.toDataURL('image/png', 1.0);
 
-    setCropResult(croppedImage);
-    setOriginalImageDimensions({ width: safeWidth, height: safeHeight });
-    setCropSize({ width: safeWidth, height: safeHeight });
-    setCropPosition({ x: 0, y: 0 });
+      setCropResult(croppedImage);
+      setOriginalImageDimensions({ width: safeWidth, height: safeHeight });
+      setCropSize({ width: safeWidth, height: safeHeight });
+      setCropPosition({ x: 0, y: 0 });
 
-    renderImageToCanvas(croppedImage);
-    setIsProcessing(false);
-    setCurrentStep(4);
-    setIsCropMode(false);
-    toast.success('Cropped successfully!', { icon: '✂️' });
-  };
+      renderImageToCanvas(croppedImage);
+      setIsProcessing(false);
+      setCurrentStep(4);
+      setIsCropMode(false);
+      toast.success('Cropped successfully!', { icon: '✂️' });
+    };
 
-  img.onerror = () => {
-    toast.error('Failed to crop');
-    setIsProcessing(false);
-  };
+    img.onerror = () => {
+      toast.error('Failed to crop');
+      setIsProcessing(false);
+    };
 
-  img.src = sourceImage;
-}, [cropPosition, cropSize, originalImageDimensions, renderImageToCanvas, bgRemovedResult, uploadedImage]);
+    img.src = sourceImage;
+  }, [cropPosition, cropSize, originalImageDimensions, renderImageToCanvas, bgRemovedResult, uploadedImage]);
+
   const resetCrop = useCallback(() => {
     if (originalImageDimensions.width === 0) return toast.error('No image to reset crop')
-    const centered = getCenteredCrop(originalImageDimensions.width, originalImageDimensions.height); setCropSize({ width: centered.width, height: centered.height }); setCropPosition({ x: centered.x, y: centered.y }); setCropAspectRatio(null); setIsDragging(false); setIsResizing(false); setResizeDirection(null); toast.success('Crop reset to center')
+    const centered = getCenteredCrop(originalImageDimensions.width, originalImageDimensions.height); setCropSize({ width: centered.width, height: centered.height }); setCropPosition({ x: centered.x, y: centered.y }); setCropAspectRatio(null); setIsDragging(false); setIsResizing(false); setResizeDirection(null); toast.success('Crop reset')
   }, [originalImageDimensions])
 
-  const resetAll = useCallback(() => { resetAllAdjustments(); toast.success('All settings reset to default'); if (displayImageRef.current) requestAnimationFrame(() => updateCanvas()) }, [resetAllAdjustments, updateCanvas])
+  const resetAll = useCallback(() => { resetAllAdjustments(); toast.success('Reset to default'); if (displayImageRef.current) requestAnimationFrame(() => updateCanvas()) }, [resetAllAdjustments, updateCanvas])
 
   const downloadImage = useCallback((format = 'png') => {
     const imageToDownload = editedImage || previewUrl || cropResult; if (!imageToDownload) return toast.error('No photo to download')
@@ -536,11 +530,11 @@ const applyCrop = useCallback(() => {
       if (format === 'jpg') {
         const canvas = document.createElement('canvas'); const img = new Image(); const dpr = window.devicePixelRatio || 1
         img.onload = () => {
-          canvas.width = img.width * dpr; canvas.height = img.height * dpr; const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0); downloadUrl = canvas.toDataURL('image/jpeg', quality); link.download = `passport-photo-${Date.now()}.jpg`; link.href = downloadUrl; document.body.appendChild(link); link.click(); document.body.removeChild(link); setIsProcessing(false); toast.success(`Photo downloaded as JPG!`)
-        }; img.onerror = () => { setIsProcessing(false); toast.error('Failed to convert to JPG') }; img.src = imageToDownload; return
+          canvas.width = img.width * dpr; canvas.height = img.height * dpr; const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, img.width, img.height); ctx.drawImage(img, 0, 0); downloadUrl = canvas.toDataURL('image/jpeg', quality); link.download = `passport-photo-${Date.now()}.jpg`; link.href = downloadUrl; document.body.appendChild(link); link.click(); document.body.removeChild(link); setIsProcessing(false); toast.success(`Downloaded as JPG!`)
+        }; img.onerror = () => { setIsProcessing(false); toast.error('Failed to convert') }; img.src = imageToDownload; return
       }
-      link.download = `passport-photo-${Date.now()}.${format}`; link.href = downloadUrl; document.body.appendChild(link); link.click(); document.body.removeChild(link); setIsProcessing(false); toast.success(`Photo downloaded as ${format.toUpperCase()}!`)
-    } catch (error) { setIsProcessing(false); toast.error('Failed to download photo') }
+      link.download = `passport-photo-${Date.now()}.${format}`; link.href = downloadUrl; document.body.appendChild(link); link.click(); document.body.removeChild(link); setIsProcessing(false); toast.success(`Downloaded as ${format.toUpperCase()}!`)
+    } catch (error) { setIsProcessing(false); toast.error('Download failed') }
   }, [cropResult, editedImage, previewUrl])
 
   const generatePDF = useCallback(async () => {
@@ -550,11 +544,11 @@ const applyCrop = useCallback(() => {
       const { jsPDF } = await import('jspdf')
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const sizeInMm = passportUnit === 'mm' ? { w: passportWidth, h: passportHeight } : { w: passportWidth * 25.4, h: passportHeight * 25.4 }
-      doc.addImage(imageToDownload, 'PNG', 10, 10, sizeInMm.w, sizeInMm.h); doc.save(`passport-photo-${Date.now()}.pdf`); setIsProcessing(false); toast.success('PDF downloaded! ✓')
+      doc.addImage(imageToDownload, 'PNG', 10, 10, sizeInMm.w, sizeInMm.h); doc.save(`passport-photo-${Date.now()}.pdf`); setIsProcessing(false); toast.success('PDF downloaded!')
     } catch (error) { setIsProcessing(false); toast.error('Failed to generate PDF') }
   }, [cropResult, editedImage, previewUrl, passportWidth, passportHeight, passportUnit])
 
-  const prevStep = useCallback(() => { if (currentStep > 1) { if (currentStep - 1 === 1 && uploadedImage) return toast.info('Image already uploaded.'); goToStep(currentStep - 1) } }, [currentStep, uploadedImage, goToStep])
+  const prevStep = useCallback(() => { if (currentStep > 1) { if (currentStep - 1 === 1 && uploadedImage) return toast.info('Photo already uploaded.'); goToStep(currentStep - 1) } }, [currentStep, uploadedImage, goToStep])
 
   const canProceed = useCallback(() => { switch (currentStep) { case 1: return !!uploadedImage; case 2: return backgroundRemoved; case 3: return true; case 4: return true; case 5: return true; case 6: return true; default: return false } }, [currentStep, uploadedImage, backgroundRemoved])
 
@@ -565,6 +559,176 @@ const applyCrop = useCallback(() => {
   }, [getRenderedImageMetrics, isCropMode, cropPosition, cropSize])
 
   const handlePositions = useMemo(() => [{ dir: 'nw', style: { top: -8, left: -8 } }, { dir: 'n', style: { top: -8, left: '50%', transform: 'translateX(-50%)' } }, { dir: 'ne', style: { top: -8, right: -8 } }, { dir: 'e', style: { top: '50%', right: -8, transform: 'translateY(-50%)' } }, { dir: 'se', style: { bottom: -8, right: -8 } }, { dir: 's', style: { bottom: -8, left: '50%', transform: 'translateX(-50%)' } }, { dir: 'sw', style: { bottom: -8, left: -8 } }, { dir: 'w', style: { top: '50%', left: -8, transform: 'translateY(-50%)' } }], [])
+
+  // Side Panel Content Primitive (Reusable for Desktop Sidebar + Mobile Drawer)
+  const PanelControls = () => (
+    <div className="space-y-4">
+      {currentStep === 2 && backgroundRemoved && !isEraserMode && (
+        <PanelSection title="Background Color" icon={Palette} defaultOpen={true}>
+          <BackgroundColorSection bgColor={bgColor} onColorChange={handleSetBackgroundColor} onCustomColorChange={handleSetBackgroundColor} onContinue={handleContinueToCrop} showContinue={true} />
+        </PanelSection>
+      )}
+
+      {currentStep === 4 && (
+        <>
+          <PanelSection title="Name & Date Overlay" icon={Type} defaultOpen={true}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-blue-600" /> Enable Caption Box
+                </label>
+                <button
+                  onClick={() => setEnableNameDate(!enableNameDate)}
+                  className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${enableNameDate ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  role="switch"
+                  aria-checked={enableNameDate}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${enableNameDate ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {enableNameDate && (
+                <div className="space-y-3 pt-2 border-t border-gray-100 animate-in fade-in duration-300">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={personName}
+                      onChange={(e) => setPersonName(e.target.value)}
+                      placeholder="e.g. RAHUL SHARMA"
+                      className="w-full px-2.5 py-1.5 text-xs font-semibold uppercase border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-semibold text-gray-600">Date of Photo (DOP)</label>
+                      <button
+                        onClick={() => {
+                          const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+                          setPhotoDate(today)
+                        }}
+                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded"
+                      >
+                        Insert Today
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={photoDate}
+                      onChange={(e) => setPhotoDate(e.target.value)}
+                      placeholder="e.g. 15-08-2024"
+                      className="w-full px-2.5 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-semibold text-gray-600">Font Size</label>
+                      <span className="text-[10px] font-mono text-gray-500">{fontSize}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="26"
+                      value={fontSize}
+                      onChange={(e) => setFontSize(Number(e.target.value))}
+                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </PanelSection>
+
+          <PanelSection title="Image Adjustments" icon={Sliders}>
+            <div className="space-y-3">
+              <SliderControl label="Zoom" value={zoom} onChange={setZoom} min={50} max={200} icon={ZoomIn} format={(v) => `${v}%`} resetValue={100} />
+              <SliderControl label="Rotation" value={rotation} onChange={setRotation} min={-180} max={180} icon={RotateCw} format={(v) => `${v}°`} resetValue={0} />
+              <SliderControl label="Brightness" value={brightness} onChange={setBrightness} min={-100} max={100} icon={Sun} resetValue={0} />
+              <SliderControl label="Contrast" value={contrast} onChange={setContrast} min={-100} max={100} icon={Contrast} resetValue={0} />
+              <SliderControl label="Saturation" value={saturation} onChange={setSaturation} min={-100} max={100} icon={Droplet} resetValue={0} />
+              <SliderControl label="Sharpness" value={sharpness} onChange={setSharpness} min={0} max={100} icon={Eye} format={(v) => `${v}%`} resetValue={0} />
+              <SliderControl label="Highlights" value={highlights} onChange={setHighlights} min={-100} max={100} icon={Zap} resetValue={0} />
+              <SliderControl label="Shadows" value={shadows} onChange={setShadows} min={-100} max={100} icon={Shield} resetValue={0} />
+            </div>
+          </PanelSection>
+        </>
+      )}
+
+      {currentStep === 3 && (
+        <>
+          <PanelSection title="Crop Settings" icon={CropIcon}>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1.5">Aspect Ratio</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {['Free', '1:1', '4:3', '3:4', '16:9', '9:16', '2:3'].map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => {
+                        setCropAspectRatio(ratio === 'Free' ? null : ratio);
+                        if (ratio !== 'Free') {
+                          const [w, h] = ratio.split(':').map(Number);
+                          const currentSize = cropSize.width;
+                          const newHeight = (currentSize / w) * h;
+                          setCropSize({ width: currentSize, height: newHeight })
+                        }
+                      }}
+                      className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-all touch-manipulation ${
+                        cropAspectRatio === (ratio === 'Free' ? null : ratio)
+                          ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5"><Grid className="w-3.5 h-3.5" /> Grid</label>
+                <button onClick={() => setShowGrid(!showGrid)} className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${showGrid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${showGrid ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Face Guide</label>
+                <button onClick={() => setShowFaceGuide(!showFaceGuide)} className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${showFaceGuide ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${showFaceGuide ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              <Button onClick={applyCrop} icon={Check} size="sm" fullWidth disabled={isProcessing || !imageLoaded}>Apply Crop</Button>
+              <Button onClick={resetCrop} variant="secondary" icon={RotateCcw} size="sm" fullWidth>Reset Crop</Button>
+            </div>
+          </PanelSection>
+
+          <PanelSection title="Passport Dimensions" icon={FileImage}>
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="text-xs text-gray-500 block mb-0.5">Width</label><input type="number" value={passportWidth} onChange={(e) => setPassportWidth(Number(e.target.value))} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none" min={1} max={100} /></div>
+              <div><label className="text-xs text-gray-500 block mb-0.5">Height</label><input type="number" value={passportHeight} onChange={(e) => setPassportHeight(Number(e.target.value))} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none" min={1} max={100} /></div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-0.5 mt-2">Unit</label>
+              <select value={passportUnit} onChange={(e) => setPassportUnit(e.target.value)} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg bg-white outline-none">
+                <option value="mm">Millimeters (mm)</option>
+                <option value="in">Inches (in)</option>
+                <option value="px">Pixels (px)</option>
+              </select>
+            </div>
+          </PanelSection>
+        </>
+      )}
+
+      <PanelSection title="Quick Actions" icon={Sparkles}>
+        <Button onClick={() => { setIsMobileBottomSheet(false); goToStep(5); }} icon={Download} variant="success" size="sm" fullWidth>Finalize & Download</Button>
+        <Button onClick={() => { setIsMobileBottomSheet(false); setShowPrintSheet(true); }} icon={Printer} variant="secondary" size="sm" fullWidth>Print Sheet</Button>
+      </PanelSection>
+    </div>
+  )
 
   const renderStepContent = useCallback(() => {
     switch (currentStep) {
@@ -581,52 +745,48 @@ const applyCrop = useCallback(() => {
       case 2:
         return (
           <div className="flex flex-col h-full w-full p-2 md:p-4 overflow-hidden relative">
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
             <div className="flex items-center gap-3 mb-3 z-10 animate-in fade-in slide-in-from-top-4 duration-500 px-2 shrink-0">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center shadow-sm border border-white shrink-0"><Wand2 className="w-5 h-5 text-purple-600" aria-hidden="true" /></div>
+              <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center shrink-0"><Wand2 className="w-4 h-4 text-purple-600" /></div>
               <div>
-                <h3 className="text-lg md:text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">{isEraserMode ? 'Manual Magic Eraser' : 'AI Background Removal'}</h3>
-                <p className="text-xs md:text-sm text-gray-500 truncate max-w-[250px] sm:max-w-full">{isEraserMode ? 'Brush over areas to remove leftover background.' : 'Instantly extract the subject for a compliant passport background.'}</p>
+                <h3 className="text-base md:text-xl font-extrabold text-gray-900">{isEraserMode ? 'Manual Eraser' : 'AI Background Removal'}</h3>
+                <p className="text-xs text-gray-500 hidden sm:block">{isEraserMode ? 'Brush over areas to remove leftover background.' : 'Instantly extract the subject for a compliant background.'}</p>
               </div>
             </div>
+
             <div className={`flex-1 flex gap-4 min-h-0 overflow-hidden ${isEraserMode ? 'flex-col md:flex-row' : 'flex-col'}`}>
-              <div className="relative w-full flex-1 bg-white/80 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-purple-500/5 border border-white flex flex-col group z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
-                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-purple-400/40 rounded-tl-xl transition-all group-hover:-translate-x-1 group-hover:-translate-y-1 z-20 pointer-events-none" />
-                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-purple-400/40 rounded-tr-xl transition-all group-hover:translate-x-1 group-hover:-translate-y-1 z-20 pointer-events-none" />
-                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-purple-400/40 rounded-bl-xl transition-all group-hover:-translate-x-1 group-hover:translate-y-1 z-20 pointer-events-none" />
-                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-purple-400/40 rounded-br-xl transition-all group-hover:translate-x-1 group-hover:translate-y-1 z-20 pointer-events-none" />
+              <div className="relative w-full flex-1 bg-white/80 backdrop-blur-md rounded-2xl md:rounded-[2rem] shadow-xl shadow-purple-500/5 border border-white flex flex-col group z-10 overflow-hidden">
                 {isEraserMode && (<style>{`.eraser-canvas { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${eraserSize}" height="${eraserSize}" viewBox="0 0 ${eraserSize} ${eraserSize}"><circle cx="${eraserSize / 2}" cy="${eraserSize / 2}" r="${eraserSize / 2 - 1}" fill="rgba(239, 68, 68, 0.4)" stroke="red" stroke-width="1"/></svg>') ${eraserSize / 2} ${eraserSize / 2}, crosshair !important; }`}</style>)}
-                <div className={`absolute inset-0 pointer-events-none transition-opacity duration-1000 ${backgroundRemoved ? 'opacity-[0.05]' : 'opacity-0'}`} style={{ backgroundImage: 'repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #fff 25%, #fff 75%, #000 75%, #000)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }} />
                 <div className={`relative w-full h-full p-2 md:p-8 flex items-center justify-center overflow-auto custom-scrollbar z-10 ${isEraserMode && eraserZoom > 100 ? 'items-start justify-start' : ''}`}>
                   {isEraserMode ? (
-                    <canvas ref={eraserCanvasRef} className="drop-shadow-2xl eraser-canvas touch-none" style={{ width: `${eraserZoom}%`, height: 'auto', maxWidth: eraserZoom === 100 ? '100%' : 'none', maxHeight: eraserZoom === 100 ? '100%' : 'none', transition: 'width 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)' }} onMouseDown={handleEraserStart} onTouchStart={handleEraserStart} />
+                    <canvas ref={eraserCanvasRef} className="drop-shadow-2xl eraser-canvas touch-none" style={{ width: `${eraserZoom}%`, height: 'auto', maxWidth: eraserZoom === 100 ? '100%' : 'none', maxHeight: eraserZoom === 100 ? '100%' : 'none' }} onMouseDown={handleEraserStart} onTouchStart={handleEraserStart} />
                   ) : previewUrl && imageLoaded ? (
-                    <img src={previewUrl} alt="Current photo preview" className="max-w-full max-h-full object-contain drop-shadow-2xl transition-all duration-700 pointer-events-none" loading="lazy" />
+                    <img src={previewUrl} alt="Current photo preview" className="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none" loading="lazy" />
                   ) : (
-                    <div className="flex flex-col items-center justify-center"><div className="relative mb-4"><div className="w-12 h-12 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin" /></div><span className="text-sm font-semibold text-gray-500 animate-pulse">Loading image...</span></div>
+                    <div className="flex flex-col items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-600 mb-2" /><span className="text-xs font-semibold text-gray-400">Loading photo...</span></div>
                   )}
                 </div>
               </div>
-              <div className={`${isEraserMode ? 'w-full md:w-[320px] flex flex-col justify-center' : 'w-full max-w-lg mx-auto pb-1'} z-10 shrink-0 flex flex-col gap-3`}>
+
+              <div className={`${isEraserMode ? 'w-full md:w-[320px] flex flex-col justify-center' : 'w-full max-w-lg mx-auto pb-1'} z-10 shrink-0 flex flex-col gap-2.5`}>
                 {!backgroundRemoved ? (
-                  <Button onClick={handleBackgroundRemoval} loading={isProcessing} icon={Wand2} size="lg" fullWidth className="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 border-none shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.02] text-white font-bold transition-all py-3.5 md:py-4">
-                    {isProcessing ? 'Applying AI Magic...' : 'Auto-Remove Background'}
+                  <Button onClick={handleBackgroundRemoval} loading={isProcessing} icon={Wand2} size="lg" fullWidth className="bg-gradient-to-r from-purple-600 to-pink-600 border-none shadow-lg shadow-purple-500/30 text-white font-bold py-3.5">
+                    {isProcessing ? 'Removing...' : 'Auto-Remove Background'}
                   </Button>
                 ) : isEraserMode ? (
-                  <div className="animate-in slide-in-from-right-4 fade-in duration-500 bg-white/90 backdrop-blur-sm p-5 rounded-2xl border border-gray-100 shadow-lg flex flex-col gap-6 w-full h-full md:h-auto justify-center">
-                    <div className="flex flex-col gap-2"><div className="flex justify-between items-center"><span className="text-sm font-bold text-gray-700">Brush Size</span><span className="text-xs font-mono font-medium text-purple-700 bg-purple-50 px-2.5 py-1 rounded-md">{eraserSize}px</span></div><input type="range" min="5" max="100" value={eraserSize} onChange={(e) => setEraserSize(Number(e.target.value))} className="w-full h-2.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" /></div>
-                    <div className="flex flex-col gap-2"><div className="flex justify-between items-center"><span className="text-sm font-bold text-gray-700">Canvas Zoom</span><span className="text-xs font-mono font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md">{eraserZoom}%</span></div><input type="range" min="100" max="400" value={eraserZoom} onChange={(e) => setEraserZoom(Number(e.target.value))} className="w-full h-2.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" /></div>
-                    <div className="flex flex-col gap-3 pt-4 border-t border-gray-100 mt-2">
-                      <Button onClick={undoEraser} disabled={eraserHistory.length <= 1} variant="secondary" icon={Undo2} fullWidth className="bg-gray-50 hover:bg-gray-100 text-gray-700 py-3 rounded-xl border border-gray-200 transition-colors">Undo Last Stroke</Button>
-                      <Button onClick={() => setIsEraserMode(false)} icon={Check} fullWidth className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold border-none shadow-md shadow-purple-500/20 py-3 rounded-xl transition-all hover:scale-[1.02]">Done Erasing</Button>
+                  <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl border border-gray-100 shadow-lg flex flex-col gap-4 w-full">
+                    <div className="flex flex-col gap-1.5"><div className="flex justify-between text-xs font-bold text-gray-700"><span>Brush Size</span><span>{eraserSize}px</span></div><input type="range" min="5" max="100" value={eraserSize} onChange={(e) => setEraserSize(Number(e.target.value))} className="w-full accent-purple-600" /></div>
+                    <div className="flex flex-col gap-1.5"><div className="flex justify-between text-xs font-bold text-gray-700"><span>Canvas Zoom</span><span>{eraserZoom}%</span></div><input type="range" min="100" max="400" value={eraserZoom} onChange={(e) => setEraserZoom(Number(e.target.value))} className="w-full accent-blue-600" /></div>
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                      <Button onClick={undoEraser} disabled={eraserHistory.length <= 1} variant="secondary" icon={Undo2} fullWidth className="py-2.5 text-xs">Undo</Button>
+                      <Button onClick={() => setIsEraserMode(false)} icon={Check} fullWidth className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-2.5 text-xs">Done</Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="animate-in slide-in-from-bottom-4 fade-in duration-500 flex flex-col gap-3 w-full max-w-lg mx-auto">
-                    <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-700 bg-emerald-50/80 backdrop-blur-sm py-3 px-4 rounded-xl border border-emerald-200/60 shadow-sm mb-1"><CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" /><span className="truncate">Background Removed Successfully!</span></div>
-                    <div className="flex flex-col gap-3">
-                      <Button icon={Eraser} size="lg" fullWidth className="bg-white border-2 border-purple-100 text-purple-700 hover:bg-purple-50 hover:border-purple-200 font-bold transition-all py-3 md:py-3.5 rounded-xl shadow-sm" onClick={() => setIsEraserMode(true)}>Touch-up (Eraser Tool)</Button>
-                      <Button icon={ArrowRight} size="lg" fullWidth className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-500/30 hover:scale-[1.02] text-white font-bold border-none transition-all py-3 md:py-3.5 rounded-xl" onClick={handleContinueToCrop}>Continue to Crop</Button>
+                  <div className="flex flex-col gap-2 w-full max-w-lg mx-auto">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50/90 py-2 px-3 rounded-xl border border-emerald-200/60"><CheckCircle className="w-4 h-4 text-emerald-500" /><span>Background Removed</span></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button icon={Eraser} size="md" fullWidth className="bg-white border border-purple-200 text-purple-700 font-bold py-2.5 text-xs" onClick={() => setIsEraserMode(true)}>Touch-up</Button>
+                      <Button icon={ArrowRight} size="md" fullWidth className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-2.5 text-xs" onClick={handleContinueToCrop}>To Crop</Button>
                     </div>
                   </div>
                 )}
@@ -638,17 +798,15 @@ const applyCrop = useCallback(() => {
         return (
           <div className="relative w-full h-full flex items-center justify-center">
             {previewUrl && imageLoaded ? (
-              <img src={previewUrl} alt="Crop preview" className="max-w-full max-h-full object-contain select-none" style={{ transform: `scale(${zoom / 100})`, transition: 'transform 0.2s ease' }} draggable={false} />
+              <img src={previewUrl} alt="Crop preview" className="max-w-full max-h-full object-contain select-none" style={{ transform: `scale(${zoom / 100})` }} draggable={false} />
             ) : (
-              <div className="flex items-center justify-center text-gray-400"><Loader2 className="w-8 h-8 animate-spin" aria-hidden="true" /><span className="ml-2">Loading image...</span></div>
+              <div className="flex items-center justify-center text-gray-400"><Loader2 className="w-6 h-6 animate-spin mr-2" /><span className="text-xs">Loading image...</span></div>
             )}
             {isCropMode && originalImageDimensions.width > 0 && initialCropSet && (
               <>
-                <div style={getCropOverlayStyle()} onMouseDown={handleCropMouseDown} onTouchStart={handleCropTouchStart} className="crop-overlay" role="button" tabIndex={0} aria-label="Crop area - drag to reposition">
+                <div style={getCropOverlayStyle()} onMouseDown={handleCropMouseDown} onTouchStart={handleCropTouchStart} className="crop-overlay">
                   {showGrid && (<div className="absolute inset-0 pointer-events-none opacity-30"><div className="absolute top-1/3 left-0 right-0 h-px bg-white" /><div className="absolute top-2/3 left-0 right-0 h-px bg-white" /><div className="absolute left-1/3 top-0 bottom-0 w-px bg-white" /><div className="absolute left-2/3 top-0 bottom-0 w-px bg-white" /></div>)}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-40"><div className="w-8 h-8 rounded-full border border-white/60" /><div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-px h-3 bg-white/60" /><div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-px w-3 bg-white/60" /></div>
-                  {showFaceGuide && (<div className="absolute inset-0 pointer-events-none opacity-30"><div className="absolute top-[20%] left-[25%] right-[25%] bottom-[45%] border-2 border-yellow-400/60 rounded-full" /></div>)}
-                  {handlePositions.map(({ dir, style }) => (<div key={dir} className="resize-handle group" data-direction={dir} style={{ position: 'absolute', width: '18px', height: '18px', backgroundColor: '#FFFFFF', border: '2px solid #3B82F6', borderRadius: '50%', cursor: `${dir}-resize`, zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', touchAction: 'none', ...style }} />))}
+                  {handlePositions.map(({ dir, style }) => (<div key={dir} className="resize-handle" data-direction={dir} style={{ position: 'absolute', width: '18px', height: '18px', backgroundColor: '#FFFFFF', border: '2px solid #3B82F6', borderRadius: '50%', cursor: `${dir}-resize`, zIndex: 20, touchAction: 'none', ...style }} />))}
                 </div>
                 <CropInfo width={cropSize.width} height={cropSize.height} aspectRatio={cropAspectRatio} ratio={currentAspectRatioString} />
               </>
@@ -658,28 +816,20 @@ const applyCrop = useCallback(() => {
       case 4:
         return (
           <div className="flex flex-col h-full w-full p-2 md:p-4 overflow-hidden relative">
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-            <div className="flex items-center gap-3 mb-3 md:mb-4 z-10 animate-in fade-in slide-in-from-top-4 duration-500 px-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center shadow-sm border border-white shrink-0"><Sliders className="w-5 h-5 text-blue-600" aria-hidden="true" /></div>
+            <div className="flex items-center gap-3 mb-2 shrink-0 px-2">
+              <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center shrink-0"><Sliders className="w-4 h-4 text-blue-600" /></div>
               <div>
-                <h3 className="text-lg md:text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Fine-Tune Your Photo</h3>
-                <p className="text-xs md:text-sm text-gray-500">Real-time preview. Adjust lighting, color, or add Name & Date overlay.</p>
+                <h3 className="text-base font-extrabold text-gray-900">Fine-Tune & Caption</h3>
+                <p className="text-[11px] text-gray-500">Live preview. Open settings below to adjust controls.</p>
               </div>
             </div>
-            <div className="relative w-full flex-1 bg-white/80 backdrop-blur-md rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-blue-500/5 border border-white flex items-center justify-center group z-10 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
-              <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-blue-400/40 rounded-tl-xl transition-all group-hover:-translate-x-1 group-hover:-translate-y-1 z-20 pointer-events-none" />
-              <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-blue-400/40 rounded-tr-xl transition-all group-hover:translate-x-1 group-hover:-translate-y-1 z-20 pointer-events-none" />
-              <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-blue-400/40 rounded-bl-xl transition-all group-hover:-translate-x-1 group-hover:translate-y-1 z-20 pointer-events-none" />
-              <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-blue-400/40 rounded-br-xl transition-all group-hover:translate-x-1 group-hover:translate-y-1 z-20 pointer-events-none" />
-              <div className="absolute top-4 right-14 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-gray-100 flex items-center gap-2 z-20 pointer-events-none transition-opacity group-hover:opacity-100">
-                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider hidden sm:inline-block">Live Preview</span>
-              </div>
-              <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #fff 25%, #fff 75%, #000 75%, #000)', backgroundPosition: '0 0, 10px 10px', backgroundSize: '20px 20px' }} />
+            <div className="relative w-full flex-1 bg-white/80 backdrop-blur-md rounded-2xl md:rounded-[2rem] shadow-xl border border-white flex items-center justify-center overflow-hidden">
               {previewUrl && imageLoaded ? (
-                <div className="relative w-full h-full flex items-center justify-center p-4 md:p-8 overflow-hidden z-10"><img src={previewUrl} alt="Edited preview" className="max-w-full max-h-full object-contain select-none drop-shadow-2xl" style={{ transform: `scale(${zoom / 100})`, transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)' }} draggable={false} /></div>
+                <div className="relative w-full h-full flex items-center justify-center p-4 overflow-hidden z-10">
+                  <img src={previewUrl} alt="Edited preview" className="max-w-full max-h-full object-contain select-none drop-shadow-xl" style={{ transform: `scale(${zoom / 100})` }} draggable={false} />
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center z-10"><div className="relative mb-4"><div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" /></div><span className="text-sm font-semibold text-gray-500 animate-pulse">Rendering Adjustments...</span></div>
+                <div className="flex flex-col items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" /><span className="text-xs text-gray-400">Rendering...</span></div>
               )}
             </div>
           </div>
@@ -688,30 +838,26 @@ const applyCrop = useCallback(() => {
         const imageToDownload = editedImage || previewUrl || cropResult;
         return (
           <div className="flex flex-col items-center justify-center h-full w-full p-4 overflow-y-auto custom-scrollbar relative">
-            <div className="m-auto text-center max-w-lg w-full animate-in fade-in slide-in-from-bottom-4 duration-500 py-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-white"><Download className="w-8 h-8 text-green-600" aria-hidden="true" /></div>
-              <h3 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600 mb-2">Save Your Photo</h3>
-              <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">Download your finalized passport photo to your device in high resolution.</p>
-              <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-[2rem] shadow-xl shadow-green-500/5 border border-white mb-8 relative group hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300">
-                <div className="absolute top-5 left-5 w-6 h-6 border-t-2 border-l-2 border-green-400/40 rounded-tl-xl transition-all group-hover:-translate-x-1 group-hover:-translate-y-1" />
-                <div className="absolute top-5 right-5 w-6 h-6 border-t-2 border-r-2 border-green-400/40 rounded-tr-xl transition-all group-hover:translate-x-1 group-hover:-translate-y-1" />
-                <div className="absolute bottom-5 left-5 w-6 h-6 border-b-2 border-l-2 border-green-400/40 rounded-bl-xl transition-all group-hover:-translate-x-1 group-hover:translate-y-1" />
-                <div className="absolute bottom-5 right-5 w-6 h-6 border-b-2 border-r-2 border-green-400/40 rounded-br-xl transition-all group-hover:translate-x-1 group-hover:translate-y-1" />
-                <div className="flex justify-center mb-6 relative z-10">
+            <div className="m-auto text-center max-w-sm w-full py-4">
+              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-green-100"><Download className="w-6 h-6 text-green-600" /></div>
+              <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Save Photo</h3>
+              <p className="text-xs text-gray-500 mb-6">High resolution export ready.</p>
+              <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 mb-6 relative">
+                <div className="flex justify-center mb-3">
                   {imageToDownload ? (
-                    <img src={imageToDownload} alt="Final passport preview" className="rounded-xl shadow-lg border-[6px] border-white object-contain bg-gray-50" style={{ width: passportUnit === 'mm' ? `${Math.min(passportWidth * 4.5, 260)}px` : `${Math.min(passportWidth * 85, 260)}px`, height: passportUnit === 'mm' ? `${Math.min(passportHeight * 4.5, 320)}px` : `${Math.min(passportHeight * 85, 320)}px`, maxHeight: '35vh' }} loading="lazy" />
+                    <img src={imageToDownload} alt="Final passport preview" className="rounded-lg shadow border-4 border-white object-contain bg-gray-50 max-h-[30vh]" loading="lazy" />
                   ) : (
-                    <div className="w-32 h-40 bg-gray-50 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-200"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                    <div className="w-32 h-40 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-200"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
                   )}
                 </div>
-                <div className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-2.5 rounded-full border border-green-100/50 shadow-sm"><CheckCircle className="w-4 h-4 text-green-500" /><span className="text-sm font-bold text-green-700 tracking-tight">{Math.round(passportWidth)} × {Math.round(passportHeight)} {passportUnit}</span></div>
+                <div className="inline-flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-full text-xs font-bold text-green-700">{Math.round(passportWidth)} × {Math.round(passportHeight)} {passportUnit}</div>
               </div>
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <Button onClick={() => downloadImage('png')} icon={ImageIcon} variant="primary" fullWidth loading={isProcessing} aria-label="Download as PNG" className="bg-gradient-to-r from-blue-600 to-indigo-600 border-none shadow-md shadow-blue-500/20 hover:shadow-blue-500/40">PNG</Button>
-                <Button onClick={() => downloadImage('jpg')} icon={ImageIcon} variant="primary" fullWidth loading={isProcessing} aria-label="Download as JPG" className="bg-gradient-to-r from-purple-600 to-pink-600 border-none shadow-md shadow-purple-500/20 hover:shadow-purple-500/40">JPG</Button>
-                <Button onClick={generatePDF} icon={FileImage} variant="danger" fullWidth loading={isProcessing} aria-label="Download as PDF" className="bg-gradient-to-r from-red-500 to-rose-600 border-none shadow-md shadow-red-500/20 hover:shadow-red-500/40">PDF</Button>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <Button onClick={() => downloadImage('png')} icon={ImageIcon} variant="primary" fullWidth loading={isProcessing} className="py-2.5 text-xs">PNG</Button>
+                <Button onClick={() => downloadImage('jpg')} icon={ImageIcon} variant="primary" fullWidth loading={isProcessing} className="py-2.5 text-xs bg-purple-600">JPG</Button>
+                <Button onClick={generatePDF} icon={FileImage} variant="danger" fullWidth loading={isProcessing} className="py-2.5 text-xs">PDF</Button>
               </div>
-              <Button variant="secondary" icon={ArrowRight} size="lg" fullWidth onClick={() => goToStep(6)} aria-label="Continue to print" className="bg-white border-2 border-gray-100 hover:border-blue-200 hover:bg-blue-50 text-gray-700 hover:text-blue-700 shadow-sm transition-all">Skip to Print Layout</Button>
+              <Button variant="secondary" icon={ArrowRight} size="md" fullWidth onClick={() => goToStep(6)} className="py-2.5 text-xs">Print Layout Sheet</Button>
             </div>
           </div>
         )
@@ -719,25 +865,20 @@ const applyCrop = useCallback(() => {
         const finalImageToPrint = editedImage || previewUrl || cropResult;
         return (
           <div className="flex flex-col items-center justify-center h-full w-full p-4 overflow-y-auto custom-scrollbar relative">
-            <div className="m-auto text-center max-w-lg w-full animate-in fade-in slide-in-from-bottom-4 duration-500 py-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-white"><Printer className="w-8 h-8 text-blue-600" aria-hidden="true" /></div>
-              <h3 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2">Ready to Print</h3>
-              <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">Review your final passport photo before generating a layout sheet with multiple copies.</p>
-              <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-[2rem] shadow-xl shadow-blue-500/5 border border-white mb-8 relative group hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300">
-                <div className="absolute top-5 left-5 w-6 h-6 border-t-2 border-l-2 border-blue-400/40 rounded-tl-xl transition-all group-hover:-translate-x-1 group-hover:-translate-y-1" />
-                <div className="absolute top-5 right-5 w-6 h-6 border-t-2 border-r-2 border-blue-400/40 rounded-tr-xl transition-all group-hover:translate-x-1 group-hover:-translate-y-1" />
-                <div className="absolute bottom-5 left-5 w-6 h-6 border-b-2 border-l-2 border-blue-400/40 rounded-bl-xl transition-all group-hover:-translate-x-1 group-hover:translate-y-1" />
-                <div className="absolute bottom-5 right-5 w-6 h-6 border-b-2 border-r-2 border-blue-400/40 rounded-br-xl transition-all group-hover:translate-x-1 group-hover:translate-y-1" />
-                <div className="flex justify-center mb-6 relative z-10">
+            <div className="m-auto text-center max-w-sm w-full py-4">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-blue-100"><Printer className="w-6 h-6 text-blue-600" /></div>
+              <h3 className="text-2xl font-extrabold text-gray-900 mb-1">Print Layout Sheet</h3>
+              <p className="text-xs text-gray-500 mb-6">Generate multiple copies on A4 or 4x6 paper.</p>
+              <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 mb-6">
+                <div className="flex justify-center mb-3">
                   {finalImageToPrint ? (
-                    <img src={finalImageToPrint} alt="Final passport preview" className="rounded-xl shadow-lg border-[6px] border-white object-contain bg-gray-50" style={{ width: passportUnit === 'mm' ? `${Math.min(passportWidth * 4.5, 260)}px` : `${Math.min(passportWidth * 85, 260)}px`, height: passportUnit === 'mm' ? `${Math.min(passportHeight * 4.5, 320)}px` : `${Math.min(passportHeight * 85, 320)}px`, maxHeight: '40vh' }} loading="lazy" />
+                    <img src={finalImageToPrint} alt="Final preview" className="rounded-lg shadow border-4 border-white object-contain max-h-[30vh]" loading="lazy" />
                   ) : (
-                    <div className="w-32 h-40 bg-gray-50 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-200"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                    <div className="w-32 h-40 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-200"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
                   )}
                 </div>
-                <div className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-2.5 rounded-full border border-blue-100/50 shadow-sm"><Target className="w-4 h-4 text-blue-500" /><span className="text-sm font-bold text-blue-700 tracking-tight">Output Size: {Math.round(passportWidth)} × {Math.round(passportHeight)} {passportUnit}</span></div>
               </div>
-              <Button onClick={() => setShowPrintSheet(true)} icon={Layers} size="xl" fullWidth className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 border-none shadow-lg shadow-blue-500/30 hover:shadow-purple-500/40 text-white font-bold" aria-label="Open print layout generator">Generate Layout Sheet</Button>
+              <Button onClick={() => setShowPrintSheet(true)} icon={Layers} size="lg" fullWidth className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 text-sm">Generate Layout Sheet</Button>
             </div>
           </div>
         )
@@ -747,35 +888,59 @@ const applyCrop = useCallback(() => {
 
   return (
     <>
-      <SEO title="Passport Photo Maker - Create Professional ID Photos" description="Create compliant passport photos with AI background removal, easy cropping, photo editing, and print-ready sheets." url="https://Uploadio.com/passport-photo-maker" />
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 20px; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; } .step-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); } .resize-handle { transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; } .resize-handle:hover { transform: scale(1.25); border-color: #1D4ED8; box-shadow: 0 2px 12px rgba(59, 130, 246, 0.6); } .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; } .touch-manipulation { touch-action: manipulation; } .crop-overlay { touch-action: none; user-select: none; -webkit-user-select: none; } .resize-handle { touch-action: none; } .crop-dimensions { pointer-events: none; }`}</style>
+      <SEO title="Passport Photo Maker - Professional ID Studio" description="Create compliant passport photos with AI background removal, custom cropping, and print sheets." url="https://Uploadio.com/passport-photo-maker" />
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 20px; } .touch-manipulation { touch-action: manipulation; } .crop-overlay { touch-action: none; user-select: none; } .resize-handle { touch-action: none; }`}</style>
 
       {showProgressOverlay && <BackgroundRemovalProgress progress={removalProgress} stage={removalStage} isComplete={isRemovalComplete} />}
-      {error && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-xl shadow-lg z-50 animate-in fade-in slide-in-from-top-2 max-w-[90vw]" role="alert" aria-live="polite"><p className="flex items-center gap-2 text-sm"><AlertCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />{error}</p></div>}
 
-      <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-        <header className="h-14 bg-white/95 backdrop-blur-sm border-b border-gray-200/80 flex items-center px-3 md:px-4 gap-2 flex-shrink-0 z-20 shadow-sm">
-          <div className="flex items-center gap-2 md:gap-3"><div className="flex items-center gap-2"><div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/30"><span className="text-white font-bold text-sm">P</span></div><span className="font-bold text-gray-800 text-sm hidden sm:inline">Passport Studio</span></div></div>
-          <div className="flex items-center gap-1 ml-2 md:ml-4"><Button variant="ghost" size="sm" icon={RotateCcw} onClick={resetAll} aria-label="Reset all settings"><span className="hidden xs:inline">Reset</span></Button></div>
-          <div className="ml-auto flex items-center gap-1 md:gap-1.5">
-            {uploadedImage && <Button variant="outline" size="sm" icon={Upload} onClick={handleStartOver} aria-label="Upload new photo" className="text-xs"><span className="hidden sm:inline">Upload New</span></Button>}
-            {uploadedImage && <button onClick={() => setIsRightPanelOpen(!isRightPanelOpen)} className={`p-2 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation hidden md:block`} aria-label={isRightPanelOpen ? 'Close panel' : 'Open panel'}>{isRightPanelOpen ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}</button>}
-            {uploadedImage && <button onClick={() => setIsMobileBottomSheet(!isMobileBottomSheet)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation block md:hidden" aria-label="Toggle controls"><Sliders className="w-4 h-4" /></button>}
+      <div className="h-screen flex flex-col bg-gray-50/60 overflow-hidden font-sans">
+        
+        {/* Top Header */}
+        <header className="h-14 bg-white/90 backdrop-blur-md border-b border-gray-200/80 flex items-center px-3 md:px-4 gap-2 flex-shrink-0 z-20">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-500/20">
+              <span className="text-white font-black text-xs">P</span>
+            </div>
+            <span className="font-extrabold text-gray-900 text-sm hidden sm:inline">Passport Studio</span>
+          </div>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" icon={RotateCcw} onClick={resetAll} className="text-xs px-2.5 py-1.5">Reset</Button>
+            {uploadedImage && <Button variant="outline" size="sm" icon={Upload} onClick={handleStartOver} className="text-xs px-2.5 py-1.5"><span className="hidden sm:inline">Upload New</span></Button>}
+            {uploadedImage && (
+              <button 
+                onClick={() => setIsMobileBottomSheet(!isMobileBottomSheet)} 
+                className={`p-2 rounded-xl border transition-all md:hidden ${isMobileBottomSheet ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600'}`}
+                aria-label="Toggle Controls"
+              >
+                <Sliders className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </header>
 
+        {/* Main Editor Layout */}
         <div className="flex-1 flex overflow-hidden relative">
-          <div className={`bg-white/95 backdrop-blur-sm border-r border-gray-200/80 flex-shrink-0 transition-all duration-300 overflow-y-auto hidden md:block ${isLeftPanelCollapsed ? 'w-14' : 'w-48 lg:w-56'}`}>
+          
+          {/* Desktop Left Stepper Sidebar */}
+          <div className={`bg-white/90 backdrop-blur-md border-r border-gray-200/80 flex-shrink-0 transition-all duration-300 overflow-y-auto hidden md:block ${isLeftPanelCollapsed ? 'w-14' : 'w-48 lg:w-56'}`}>
             <div className="p-3">
-              <button onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)} className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 transition-colors mb-3 touch-manipulation" aria-label={isLeftPanelCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{isLeftPanelCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}</button>
+              <button onClick={() => setIsLeftPanelCollapsed(!isLeftPanelCollapsed)} className="w-full flex items-center justify-center p-2 rounded-xl hover:bg-gray-100 transition-colors mb-3">
+                {isLeftPanelCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              </button>
               <div className="space-y-1">
                 {steps.map((step) => {
                   const Icon = step.icon; const isCompleted = step.id < currentStep; const isCurrent = step.id === currentStep; const isLocked = (step.id === 1 && uploadedImage && currentStep > 1) || step.id > currentStep
                   return (
-                    <button key={step.id} onClick={() => !isLocked && goToStep(step.id)} disabled={isLocked} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all step-transition touch-manipulation ${isCurrent ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200/50 shadow-sm' : ''} ${isCompleted ? 'text-green-600' : ''} ${isLocked ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`} aria-current={isCurrent ? 'step' : undefined}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium ${isCurrent ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md' : ''} ${isCompleted ? 'bg-green-100 text-green-600' : ''} ${isLocked ? 'bg-gray-100 text-gray-400' : ''}`}>{isCompleted ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : <Icon className="w-3.5 h-3.5" aria-hidden="true" />}</div>
-                      {!isLeftPanelCollapsed && (<div className="flex-1 text-left"><span className={`text-sm font-medium block ${isCurrent ? 'text-blue-700' : isCompleted ? 'text-green-600' : 'text-gray-600'}`}>{step.label}</span><span className="text-[10px] text-gray-400">{step.desc}</span></div>)}
-                      {isCurrent && !isLeftPanelCollapsed && <div className="w-1.5 h-8 bg-blue-600 rounded-full" aria-hidden="true" />}
+                    <button key={step.id} onClick={() => !isLocked && goToStep(step.id)} disabled={isLocked} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isCurrent ? 'bg-blue-50 text-blue-700 font-bold border border-blue-100' : ''} ${isCompleted ? 'text-emerald-600 font-medium' : ''} ${isLocked ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`}>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${isCurrent ? 'bg-blue-600 text-white' : ''} ${isCompleted ? 'bg-emerald-100 text-emerald-600' : ''} ${isLocked ? 'bg-gray-100 text-gray-400' : ''}`}>
+                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+                      </div>
+                      {!isLeftPanelCollapsed && (
+                        <div className="flex-1 text-left">
+                          <span className="text-xs font-semibold block">{step.label}</span>
+                        </div>
+                      )}
                     </button>
                   )
                 })}
@@ -783,161 +948,65 @@ const applyCrop = useCallback(() => {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col bg-gray-50/30 overflow-hidden">
-            <div className="flex-1 relative overflow-hidden p-2 sm:p-3 md:p-4">
-              <div ref={containerRef} className="relative w-full h-full bg-transparent flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }} role="img" aria-label="Image preview area">
+          {/* Center Stage Workspace */}
+          <div className="flex-1 flex flex-col bg-gray-100/50 overflow-hidden relative">
+            <div className="flex-1 relative overflow-hidden p-2 sm:p-4">
+              <div ref={containerRef} className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ touchAction: 'none' }}>
                 <canvas ref={canvasRef} className="hidden" />
                 {renderStepContent()}
-                {isProcessing && !error && !showProgressOverlay && (<div className="absolute inset-0 bg-black/50 rounded-xl md:rounded-2xl flex items-center justify-center backdrop-blur-sm z-50"><div className="bg-white rounded-2xl p-6 md:p-8 text-center shadow-2xl max-w-[90%]"><div className="w-14 h-14 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" aria-hidden="true" /><p className="text-sm font-semibold text-gray-700">Processing...</p><p className="text-xs text-gray-400 mt-1">Please wait</p></div></div>)}
               </div>
             </div>
-            <div className="flex-shrink-0">
-              <div className="bg-white/95 backdrop-blur-sm border-t border-gray-200/80 flex items-center justify-between px-3 md:px-4 py-2">
-                <div className="flex items-center gap-2 md:gap-3"><Button variant="secondary" size="sm" icon={ArrowLeft} onClick={prevStep} disabled={currentStep === 1 || (currentStep === 2 && uploadedImage)} aria-label="Go back to previous step"><span className="hidden xs:inline">Back</span></Button><span className="text-xs text-gray-500 font-medium">Step {currentStep} of 6</span></div>
-                <div className="flex items-center gap-2 md:gap-3"><span className="text-xs text-gray-400 hidden sm:inline">{steps.find(s => s.id === currentStep)?.desc}</span><Button variant="primary" size="sm" icon={currentStep === 6 ? Check : ArrowRight} onClick={() => { if (currentStep === 3 && !cropResult) { applyCrop(); return; } if (currentStep === 4 && previewUrl) { setEditedImage(previewUrl); toast.success('Photo saved! 🎨') } goToStep(currentStep + 1) }} disabled={!canProceed() || currentStep === 6} aria-label={currentStep === 6 ? 'Complete' : 'Continue to next step'}>{currentStep === 4 ? 'Save & Continue' : currentStep === 5 ? 'Continue to Print' : currentStep === 6 ? 'Done' : 'Continue'}</Button></div>
-              </div>
-              <StatusBar imageSize={originalImageDimensions} passportSize={passportSize} zoom={zoom} isProcessing={isProcessing} isReady={!!(previewUrl && imageLoaded)} step={currentStep} />
+
+            {/* Bottom Step Navigation Bar */}
+            <div className="flex-shrink-0 bg-white/90 backdrop-blur-md border-t border-gray-200/80 px-3 md:px-4 py-2.5 flex items-center justify-between z-10">
+              <Button variant="secondary" size="sm" icon={ArrowLeft} onClick={prevStep} disabled={currentStep === 1} className="py-2 text-xs">Back</Button>
+              <div className="text-xs font-bold text-gray-500">Step {currentStep} of 6</div>
+              <Button variant="primary" size="sm" icon={currentStep === 6 ? Check : ArrowRight} onClick={() => { if (currentStep === 3 && !cropResult) { applyCrop(); return; } if (currentStep === 4 && previewUrl) { setEditedImage(previewUrl); toast.success('Saved!') } goToStep(currentStep + 1) }} disabled={!canProceed() || currentStep === 6} className="py-2 text-xs bg-gradient-to-r from-blue-600 to-indigo-600">
+                {currentStep === 4 ? 'Save' : currentStep === 5 ? 'Print Sheet' : currentStep === 6 ? 'Done' : 'Next'}
+              </Button>
             </div>
           </div>
 
+          {/* Desktop Right Settings Panel */}
           {uploadedImage && isRightPanelOpen && (
-            <div className={`bg-white/95 backdrop-blur-sm border-l border-gray-200/80 overflow-y-auto flex-shrink-0 p-4 space-y-4 custom-scrollbar hidden md:block lg:w-72 w-64`}>
-              {currentStep === 2 && backgroundRemoved && !isEraserMode && (<PanelSection title="Background Color" icon={Palette} defaultOpen={true}><BackgroundColorSection bgColor={bgColor} onColorChange={handleSetBackgroundColor} onCustomColorChange={handleSetBackgroundColor} onContinue={handleContinueToCrop} showContinue={true} /></PanelSection>)}
-              {currentStep === 4 && (
-                <>
-                  {/* --- NAME & DATE OVERLAY TAB --- */}
-                  <PanelSection title="Name & Date Overlay" icon={Type} defaultOpen={true}>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5 text-blue-600" /> Enable Caption Box
-                        </label>
-                        <button
-                          onClick={() => setEnableNameDate(!enableNameDate)}
-                          className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${enableNameDate ? 'bg-blue-600' : 'bg-gray-300'}`}
-                          role="switch"
-                          aria-checked={enableNameDate}
-                          aria-label="Toggle Name and Date overlay"
-                        >
-                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${enableNameDate ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                        </button>
-                      </div>
-
-                      {enableNameDate && (
-                        <div className="space-y-3 pt-2 border-t border-gray-100 animate-in fade-in duration-300">
-                          <div>
-                            <label className="text-xs font-semibold text-gray-600 block mb-1">Full Name</label>
-                            <input
-                              type="text"
-                              value={personName}
-                              onChange={(e) => setPersonName(e.target.value)}
-                              placeholder="e.g. RAHUL SHARMA"
-                              className="w-full px-2.5 py-1.5 text-xs font-semibold uppercase border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <label className="text-xs font-semibold text-gray-600">Date of Photo (DOP)</label>
-                              <button
-                                onClick={() => {
-                                  const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
-                                  setPhotoDate(today)
-                                }}
-                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded"
-                              >
-                                Insert Today
-                              </button>
-                            </div>
-                            <input
-                              type="text"
-                              value={photoDate}
-                              onChange={(e) => setPhotoDate(e.target.value)}
-                              placeholder="e.g. 15-08-2024"
-                              className="w-full px-2.5 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                              <label className="text-xs font-semibold text-gray-600">Font Size</label>
-                              <span className="text-[10px] font-mono text-gray-500">{fontSize}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="10"
-                              max="26"
-                              value={fontSize}
-                              onChange={(e) => setFontSize(Number(e.target.value))}
-                              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                            />
-                          </div>
-
-                          <p className="text-[10px] text-gray-400 italic">Adds a standard white caption box required for exam & government forms.</p>
-                        </div>
-                      )}
-                    </div>
-                  </PanelSection>
-
-                  <PanelSection title="Image Properties" icon={Sliders}>
-                    <div className="space-y-3">
-                      <SliderControl label="Zoom" value={zoom} onChange={setZoom} min={50} max={200} icon={ZoomIn} format={(v) => `${v}%`} resetValue={100} />
-                      <SliderControl label="Rotation" value={rotation} onChange={setRotation} min={-180} max={180} icon={RotateCw} format={(v) => `${v}°`} resetValue={0} />
-                      <SliderControl label="Brightness" value={brightness} onChange={setBrightness} min={-100} max={100} icon={Sun} resetValue={0} />
-                      <SliderControl label="Contrast" value={contrast} onChange={setContrast} min={-100} max={100} icon={Contrast} resetValue={0} />
-                      <SliderControl label="Saturation" value={saturation} onChange={setSaturation} min={-100} max={100} icon={Droplet} resetValue={0} />
-                      <SliderControl label="Sharpness" value={sharpness} onChange={setSharpness} min={0} max={100} icon={Eye} format={(v) => `${v}%`} resetValue={0} />
-                      <SliderControl label="Highlights" value={highlights} onChange={setHighlights} min={-100} max={100} icon={Zap} resetValue={0} />
-                      <SliderControl label="Shadows" value={shadows} onChange={setShadows} min={-100} max={100} icon={Shield} resetValue={0} />
-                      <SliderControl label="Exposure" value={exposure} onChange={setExposure} min={-50} max={50} icon={Thermometer} resetValue={0} />
-                      <SliderControl label="Vibrance" value={vibrance} onChange={setVibrance} min={-100} max={100} icon={Sparkles} resetValue={0} />
-                    </div>
-                  </PanelSection>
-                </>
-              )}
-              {currentStep === 3 && (
-                <>
-                  <PanelSection title="Crop Settings" icon={CropIcon}>
-                    <div className="space-y-3">
-                      <div><label className="text-xs font-medium text-gray-700 block mb-1.5">Aspect Ratio</label><div className="grid grid-cols-4 gap-1.5">{['Free', '1:1', '4:3', '3:4', '16:9', '9:16', '2:3'].map((ratio) => (<button key={ratio} onClick={() => { setCropAspectRatio(ratio === 'Free' ? null : ratio); if (ratio !== 'Free') { const [w, h] = ratio.split(':').map(Number); const currentSize = cropSize.width; const newHeight = (currentSize / w) * h; setCropSize({ width: currentSize, height: newHeight }) } }} className={`px-2 py-1.5 text-xs font-medium rounded-lg border transition-all touch-manipulation ${cropAspectRatio === (ratio === 'Free' ? null : ratio) ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`} aria-label={`Set aspect ratio to ${ratio}`}>{ratio}</button>))}</div></div>
-                      <div className="flex items-center justify-between"><label className="text-xs font-medium text-gray-700 flex items-center gap-1.5"><Grid className="w-3.5 h-3.5" aria-hidden="true" /> Grid</label><button onClick={() => setShowGrid(!showGrid)} className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${showGrid ? 'bg-blue-600' : 'bg-gray-300'}`} role="switch" aria-checked={showGrid} aria-label="Toggle grid"><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${showGrid ? 'translate-x-5' : 'translate-x-0.5'}`} aria-hidden="true" /></button></div>
-                      <div className="flex items-center justify-between"><label className="text-xs font-medium text-gray-700 flex items-center gap-1.5"><Users className="w-3.5 h-3.5" aria-hidden="true" /> Face Guide</label><button onClick={() => setShowFaceGuide(!showFaceGuide)} className={`relative w-10 h-5 rounded-full transition-colors touch-manipulation ${showFaceGuide ? 'bg-blue-600' : 'bg-gray-300'}`} role="switch" aria-checked={showFaceGuide} aria-label="Toggle face guide"><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${showFaceGuide ? 'translate-x-5' : 'translate-x-0.5'}`} aria-hidden="true" /></button></div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg"><div>Width: <span className="font-mono font-medium text-gray-700">{Math.round(cropSize.width)}px</span></div><div>Height: <span className="font-mono font-medium text-gray-700">{Math.round(cropSize.height)}px</span></div></div>
-                      <Button onClick={applyCrop} icon={Check} size="sm" fullWidth disabled={isProcessing || !imageLoaded} aria-label="Apply crop">Apply Crop</Button>
-                      <Button onClick={resetCrop} variant="secondary" icon={RotateCcw} size="sm" fullWidth aria-label="Reset crop">Reset Crop</Button>
-                    </div>
-                  </PanelSection>
-                  <PanelSection title="Passport Settings" icon={FileImage}>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div><label className="text-xs text-gray-500 block mb-0.5">Width</label><input type="number" value={passportWidth} onChange={(e) => setPassportWidth(Number(e.target.value))} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none touch-manipulation" min={1} max={100} aria-label="Passport width" /></div>
-                      <div><label className="text-xs text-gray-500 block mb-0.5">Height</label><input type="number" value={passportHeight} onChange={(e) => setPassportHeight(Number(e.target.value))} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none touch-manipulation" min={1} max={100} aria-label="Passport height" /></div>
-                    </div>
-                    <div><label className="text-xs text-gray-500 block mb-0.5">Unit</label><select value={passportUnit} onChange={(e) => setPassportUnit(e.target.value)} className="w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white touch-manipulation" aria-label="Passport unit"><option value="mm">Millimeters (mm)</option><option value="in">Inches (in)</option><option value="px">Pixels (px)</option></select></div>
-                    <div className="text-xs text-gray-500 text-center bg-gray-50 p-2 rounded-lg">{passportWidth}×{passportHeight} {passportUnit}</div>
-                  </PanelSection>
-                </>
-              )}
-              <PanelSection title="Quick Actions" icon={Sparkles}><Button onClick={() => goToStep(5)} icon={Download} variant="success" size="sm" fullWidth aria-label="Finalize and download">Finalize & Download</Button><Button onClick={() => setShowPrintSheet(true)} icon={Printer} variant="secondary" size="sm" fullWidth aria-label="Print sheet">Print Sheet</Button></PanelSection>
+            <div className="bg-white/95 backdrop-blur-md border-l border-gray-200/80 overflow-y-auto flex-shrink-0 p-4 custom-scrollbar hidden md:block lg:w-72 w-64 space-y-4">
+              <PanelControls />
             </div>
           )}
+
+          {/* Mobile Bottom Sheet Drawer for Settings */}
+          {uploadedImage && (
+            <div className={`fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-2xl rounded-t-[2rem] border-t border-gray-200 shadow-2xl transition-all duration-300 ease-out md:hidden max-h-[70vh] flex flex-col ${isMobileBottomSheet ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}>
+              <div className="p-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
+                <span className="text-xs font-extrabold text-gray-800 pt-2">Step {currentStep} Settings</span>
+                <button onClick={() => setIsMobileBottomSheet(false)} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-4 overflow-y-auto custom-scrollbar flex-1">
+                <PanelControls />
+              </div>
+            </div>
+          )}
+
         </div>
 
-        {/* LAZY LOADED: Print Sheet Generator Modal */}
+        {/* Print Sheet Modal */}
         {showPrintSheet && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" role="dialog" aria-label="Print sheet generator">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur-sm z-10">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Printer className="w-5 h-5 text-blue-600" aria-hidden="true" /> Print Sheet Generator</h3>
-                <button onClick={() => setShowPrintSheet(false)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation" aria-label="Close print sheet"><X className="w-5 h-5" /></button>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-3 md:p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+                <h3 className="text-sm md:text-base font-bold text-gray-900 flex items-center gap-2"><Printer className="w-4 h-4 text-blue-600" /> Print Sheet Generator</h3>
+                <button onClick={() => setShowPrintSheet(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X className="w-5 h-5" /></button>
               </div>
-              <div className="p-4 md:p-6">
-                <Suspense fallback={<div className="flex flex-col items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" /><p className="text-gray-500">Loading print generator...</p></div>}>
+              <div className="p-3 md:p-6">
+                <Suspense fallback={<div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" /></div>}>
                   <PrintSheetGenerator passportPhoto={editedImage || previewUrl || cropResult} passportSize={{ width: passportWidth, height: passportHeight, unit: passportUnit }} onBack={() => setShowPrintSheet(false)} />
                 </Suspense>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </>
   )
