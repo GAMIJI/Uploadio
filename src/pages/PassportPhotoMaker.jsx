@@ -905,7 +905,7 @@ export default function PassportPhotoMaker() {
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" icon={RotateCcw} onClick={resetAll} className="text-xs px-2.5 py-1.5">Reset</Button>
+            {/* <Button variant="ghost" size="sm" icon={RotateCcw} onClick={resetAll} className="text-xs px-2.5 py-1.5">Reset</Button> */}
             {uploadedImage && <Button variant="outline" size="sm" icon={Upload} onClick={handleStartOver} className="text-xs px-2.5 py-1.5"><span className="hidden sm:inline">Upload New</span></Button>}
             {uploadedImage && (
               <button 
