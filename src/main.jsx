@@ -4,9 +4,15 @@ import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
 import './index.css'
+import ReactGA from "react-ga4";
 
 import { inject } from '@vercel/analytics';
 inject();
+
+
+
+ReactGA.initialize("G-LXMJ8EGPZ4");
+ReactGA.send("pageview");
 
 // Enable React concurrent features
 ReactDOM.createRoot(document.getElementById('root')).render(
