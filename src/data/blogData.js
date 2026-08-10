@@ -32,7 +32,7 @@ export const blogPostsData = [
       { type: "h2", text: "Flawless Background Removal" },
       { type: "p", text: "Traditional background removal left jagged edges around hair or required manual masking. Modern neural networks, like the ones powering Uploadio, can detect hair strands at a pixel level, seamlessly replacing cluttered backgrounds with the exact shade of white or blue required by the destination country." },
       { type: "h2", text: "The Future of Travel" },
-      { type: "p", text: "As embassies move toward digital applications, AI photo tools are becoming a necessity. They democratize access to global travel by turning any smartphone into a biometric photo studio." }
+      { type: "p", text: "As embassies move toward digital applications, AI photo tools are becoming a necessity. They democratize access to global travel by turning any smartphone into a biometric photo studios." }
     ]
   },
   {
