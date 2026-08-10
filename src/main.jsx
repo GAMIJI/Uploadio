@@ -5,6 +5,9 @@ import { HelmetProvider } from 'react-helmet-async'
 import App from './App'
 import './index.css'
 
+import { inject } from '@vercel/analytics';
+inject();
+
 // Enable React concurrent features
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

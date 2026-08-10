@@ -5,7 +5,6 @@ import Layout from './layouts/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 import Resources from './pages/Resources'
 import LegalPage from './pages/LegalPage'
-import { Analytics } from "@vercel/analytics/next"
 
 // THE FIX: Eagerly import Home to completely eliminate the Footer Layout Shift (CLS)
 // The landing page should paint synchronously in the first frame.

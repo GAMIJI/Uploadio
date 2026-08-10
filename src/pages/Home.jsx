@@ -329,7 +329,7 @@ const Home = () => {
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 tracking-tight">
-                How Uploadio Works
+                How Uploadio Works..
               </h2>
               <p className="text-gray-500 font-medium text-lg max-w-2xl mx-auto">
                 Six steps, one continuous flow. Click any stage to see what happens.
