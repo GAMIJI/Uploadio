@@ -9,6 +9,7 @@ import LegalPage from './pages/LegalPage'
 // THE FIX: Eagerly import Home to completely eliminate the Footer Layout Shift (CLS)
 // The landing page should paint synchronously in the first frame.
 import Home from './pages/Home'
+import PhotoEditor from './pages/PhotoEditor'
 
 // Lazy load all secondary pages for maximum code splitting and bundle optimization
 const PassportPhotoMaker = lazy(() => import('./pages/PassportPhotoMaker'))
@@ -53,6 +54,7 @@ function App() {
             <Route path="/image-resizer" element={<ImageResizer />} />
             <Route path="/image-compressor" element={<ImageCompressor />} />
             <Route path="/image-converter" element={<ImageConverter />} />
+            <Route path="/photo-editor" element={<PhotoEditor />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<Terms />} />

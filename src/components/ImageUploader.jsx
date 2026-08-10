@@ -1,161 +1,216 @@
-import React, { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { Upload, Camera, Image as ImageIcon, Sparkles, CheckCircle, ShieldCheck } from 'lucide-react'
-import toast from 'react-hot-toast'
+import React, { useCallback, useState, useEffect, useRef, memo } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { 
+  Upload, 
+  Image as ImageIcon, 
+  AlertCircle, 
+  RefreshCw, 
+  Sparkles, 
+  FileType, 
+  Loader2 
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ImageUploader = ({ onImageUpload, onError, className = '', multiple = false }) => {
-  const [isUploading, setIsUploading] = useState(false)
+  const [uploadState, setUploadState] = useState('idle'); // 'idle' | 'loading' | 'error'
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  const timerRef = useRef(null);
+
+  // Cleanup timers on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const resetUploader = useCallback((e) => {
+    if (e) e.stopPropagation();
+    setUploadState('idle');
+    setErrorMessage('');
+  }, []);
 
   const onDrop = useCallback(async (acceptedFiles, rejectedFiles) => {
+    // 1. Handle Errors
     if (rejectedFiles.length > 0) {
-      rejectedFiles.forEach((file) => {
-        if (file.errors[0].code === 'file-too-large') {
-          toast.error('File size must be less than 10MB')
-          onError?.('File size must be less than 10MB')
-        } else if (file.errors[0].code === 'file-invalid-type') {
-          toast.error('Only JPG, PNG, and WEBP files are supported')
-          onError?.('Only JPG, PNG, and WEBP files are supported')
-        } else {
-          toast.error(file.errors[0].message)
-          onError?.(file.errors[0].message)
-        }
-      })
+      const error = rejectedFiles[0].errors[0];
+      setUploadState('error');
+      
+      let friendlyMessage = error.message;
+      if (error.code === 'file-too-large') {
+        friendlyMessage = 'File size must be less than 20MB.';
+      } else if (error.code === 'file-invalid-type') {
+        friendlyMessage = 'Unsupported format. Please use JPG, PNG, WEBP, or HEIC.';
+      }
+      
+      setErrorMessage(friendlyMessage);
+      toast.error(friendlyMessage);
+      onError?.(friendlyMessage);
+      return;
     }
 
+    // 2. Handle Success
     if (acceptedFiles.length > 0) {
-      setIsUploading(true)
+      setUploadState('loading');
       
-      // Simulate processing delay for better UX
-      setTimeout(() => {
-        const files = acceptedFiles.map(file => ({
-          file,
-          preview: URL.createObjectURL(file)
-        }))
-        onImageUpload(multiple ? files : files[0])
-        toast.success(`${acceptedFiles.length} file${acceptedFiles.length > 1 ? 's' : ''} uploaded successfully!`)
-        setIsUploading(false)
-      }, 500)
+      // Short, non-blocking visual feedback before passing data to parent
+      timerRef.current = setTimeout(() => {
+        try {
+          const filesWithPreviews = acceptedFiles.map(file => ({
+            file,
+            preview: URL.createObjectURL(file)
+          }));
+          
+          onImageUpload(multiple ? filesWithPreviews : filesWithPreviews[0]);
+          toast.success('Photo uploaded successfully!');
+          
+          // Reset state silently in case parent doesn't unmount this component
+          setUploadState('idle');
+        } catch (err) {
+          setUploadState('error');
+          setErrorMessage('Failed to process the image. Please try again.');
+          onError?.('Failed to process image.');
+        }
+      }, 600);
     }
-  }, [onImageUpload, onError, multiple])
+  }, [onImageUpload, onError, multiple]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
-      'image/webp': ['.webp']
+      'image/webp': ['.webp'],
+      'image/heic': ['.heic'],
+      'image/avif': ['.avif']
     },
-    maxSize: 10 * 1024 * 1024,
+    maxSize: 20 * 1024 * 1024, // 20MB
     multiple,
-    disabled: isUploading
-  })
+    disabled: uploadState === 'loading'
+  });
 
+  // --- RENDER STATES ---
+
+  if (uploadState === 'error') {
+    return (
+      <div className={`relative w-full max-w-xl mx-auto ${className}`}>
+        <div className="relative flex flex-col items-center justify-center w-full p-8 sm:p-12 text-center bg-white/90 backdrop-blur-xl border-2 border-red-200 rounded-[2rem] shadow-xl shadow-red-500/10 animate-in zoom-in-95 duration-300">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 border-4 border-red-100">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-extrabold text-gray-900 mb-2">Upload Failed</h3>
+          <p className="text-sm font-medium text-gray-500 mb-6 max-w-xs">{errorMessage}</p>
+          <button 
+            onClick={resetUploader}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 active:scale-95 text-white rounded-xl font-semibold transition-all shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-gray-900/30"
+          >
+            <RefreshCw className="w-4 h-4" /> Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (uploadState === 'loading') {
+    return (
+      <div className={`relative w-full max-w-xl mx-auto ${className}`}>
+        <div className="relative flex flex-col items-center justify-center w-full p-12 sm:p-16 text-center bg-white/90 backdrop-blur-xl border-2 border-blue-100 rounded-[2rem] shadow-2xl shadow-blue-500/10 animate-in fade-in duration-300">
+          <div className="relative mb-6">
+            <div className="absolute -inset-4 rounded-full border-4 border-transparent border-t-blue-600 border-r-indigo-500 animate-[spin_1s_linear_infinite]" />
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center shadow-inner">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+          </div>
+          <h3 className="text-xl font-extrabold text-gray-900 mb-1">Processing...</h3>
+          <p className="text-sm font-medium text-gray-500 animate-pulse">Preparing your photo</p>
+        </div>
+      </div>
+    );
+  }
+
+  // DEFAULT / IDLE / DRAG STATE
   return (
-    <div className={`relative w-full max-w-2xl mx-auto group ${className}`}>
-      
-      {/* Animated Glowing Background Blob */}
+    <div className={`relative w-full max-w-xl mx-auto group ${className}`}>
+      {/* Decorative Glow Blob */}
       <div 
-        className={`
-          absolute -inset-1 rounded-[2.5rem] blur-xl opacity-30 transition duration-1000 
-          bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600
-          ${isDragActive ? 'opacity-60 scale-105 duration-300' : 'group-hover:opacity-50 group-hover:duration-200'}
-        `}
+        className={`absolute -inset-1 rounded-[2.5rem] blur-xl opacity-30 transition-all duration-700 ease-out bg-gradient-to-r from-blue-600 to-indigo-600
+        ${isDragActive ? 'opacity-60 scale-105' : 'group-hover:opacity-40 group-hover:duration-200'}`}
       />
 
       <div
         {...getRootProps()}
         className={`
-          relative overflow-hidden cursor-pointer flex flex-col items-center justify-center
-          w-full px-6 py-12 md:py-16 transition-all duration-300 ease-out
-          border-2 rounded-[2rem] backdrop-blur-xl
+          relative flex flex-col items-center justify-center w-full px-6 py-12 sm:py-16 text-center
+          backdrop-blur-xl transition-all duration-300 ease-out cursor-pointer
+          border-2 rounded-[2rem] outline-none focus-visible:ring-4 focus-visible:ring-blue-500/50
           ${isDragActive 
-            ? 'border-purple-400 bg-white/90 scale-[0.99] shadow-2xl' 
-            : 'border-white/60 bg-white/80 hover:border-purple-300 hover:bg-white/95 hover:shadow-2xl hover:shadow-purple-500/10'
+            ? 'border-blue-500 bg-blue-50/90 scale-[1.02] shadow-2xl shadow-blue-500/15' 
+            : 'border-gray-200 bg-white/80 hover:border-blue-300 hover:bg-white/95 hover:shadow-xl hover:shadow-blue-500/5'
           }
         `}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} aria-label="Upload image file" />
 
-        {/* Decorative subtle pattern */}
+        {/* Decorative Grid Pattern */}
         <div 
-          className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay" 
-          style={{ backgroundImage: 'radial-gradient(#8b5cf6 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
+          className="absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay rounded-[2rem]" 
+          style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
         />
-        
-        <div className={`relative flex flex-col items-center justify-center z-10 transition-opacity duration-300 ${isUploading ? 'opacity-0' : 'opacity-100'}`}>
-          
-          {/* Vibrant Floating Icon Graphic */}
-          <div className="relative mb-6 group-hover:-translate-y-2 transition-transform duration-500">
-            {isDragActive && (
-              <div className="absolute inset-0 bg-purple-400 rounded-full animate-ping opacity-30" />
-            )}
-            <div className={`
-              relative flex items-center justify-center w-20 h-20 rounded-2xl rotate-3
-              shadow-lg transition-all duration-300
-              ${isDragActive 
-                ? 'bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white shadow-purple-500/40 rotate-0 scale-110' 
-                : 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-purple-500/30 group-hover:rotate-0'
-              }
-            `}>
-              <Upload className={`w-9 h-9 transition-transform duration-300 ${isDragActive ? '-translate-y-1' : ''}`} />
-            </div>
-            {/* Small decorative corner icon */}
-            <div className="absolute -bottom-2 -left-2 bg-white p-2 rounded-xl shadow-lg border border-purple-100 -rotate-6">
-              <Camera className="w-4 h-4 text-pink-500" />
-            </div>
-          </div>
 
-          {/* Gradient Typography */}
-          <h3 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
-            {isDragActive ? 'Release to Upload!' : 'Drop your photo here'}
-          </h3>
-          <p className="text-sm font-medium text-gray-500 max-w-sm text-center mb-8">
-            Drag and drop your file here, or click to browse. We'll handle the rest with magic.
-          </p>
-
-          {/* Colorful Action Button (Visual Only - Dropzone handles the click) */}
-          <div className="mb-10 pointer-events-none">
-            <span className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-purple-500/30 transition-all group-hover:shadow-purple-500/50 group-hover:scale-105">
-              <ImageIcon className="w-5 h-5" />
-              Browse Files
-            </span>
-          </div>
-
-          {/* Trust & Specs Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 pt-6 border-t border-purple-100 w-full max-w-md">
-            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 bg-purple-50/50 px-3 py-1.5 rounded-full">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span>JPG, PNG, WEBP (Max 10MB)</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 bg-blue-50/50 px-3 py-1.5 rounded-full">
-              <ShieldCheck className="w-4 h-4 text-blue-500" />
-              <span>Secure & Auto-deleted</span>
-            </div>
+        {/* Icon Container */}
+        <div className="relative mb-6 transition-transform duration-500 ease-out group-hover:-translate-y-1">
+          {isDragActive && (
+            <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-20" />
+          )}
+          <div className={`
+            relative flex items-center justify-center w-20 h-20 rounded-2xl transition-all duration-300 shadow-lg
+            ${isDragActive 
+              ? 'bg-blue-600 text-white shadow-blue-500/40 rotate-0 scale-110' 
+              : 'bg-gradient-to-br from-white to-gray-50 text-blue-600 shadow-gray-200/50 border border-gray-100 rotate-3 group-hover:rotate-0'
+            }
+          `}>
+            <Upload className={`w-9 h-9 transition-transform duration-300 ${isDragActive ? '-translate-y-1' : ''}`} />
           </div>
         </div>
 
-        {/* Vibrant Loading Overlay */}
-        {isUploading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/60 backdrop-blur-md transition-all duration-300">
-            <div className="relative mb-6">
-              {/* Outer rotating colorful ring */}
-              <div className="absolute -inset-4 rounded-full border-4 border-transparent border-t-purple-600 border-r-pink-500 animate-[spin_1.5s_linear_infinite]" />
-              <div className="absolute -inset-4 rounded-full border-4 border-transparent border-b-blue-500 border-l-indigo-600 animate-[spin_2s_linear_infinite_reverse]" />
-              
-              {/* Inner floating icon */}
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/40 animate-pulse">
-                <ImageIcon className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <h4 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-pink-600 mb-1">
-              Processing Magic...
-            </h4>
-            <p className="text-sm font-bold text-gray-500 animate-pulse">Preparing your workspace</p>
+        {/* Typography */}
+        <h3 className="text-2xl sm:text-3xl font-extrabold mb-3 tracking-tight text-gray-900">
+          {isDragActive ? 'Release to Upload!' : 'Upload a photo'}
+        </h3>
+        <p className="text-sm font-medium text-gray-500 max-w-sm mb-8 leading-relaxed">
+          Drag and drop your image here, or click to browse files.
+        </p>
+
+        {/* --- COLORFUL ANIMATED BUTTON --- */}
+        <div className="mb-8 pointer-events-none relative inline-block">
+          {/* Pulsing glow behind the button */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-xl blur-md opacity-40 group-hover:opacity-75 transition-opacity duration-500 animate-pulse" />
+          
+          <span className="relative overflow-hidden inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold shadow-xl transition-transform duration-300 group-hover:scale-105">
+            {/* Glossy sweep animation */}
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover:animate-[shimmer_1.5s_infinite] -skew-x-12" />
+            
+            <ImageIcon className="w-5 h-5 group-hover:rotate-12 group-hover:scale-110 transition-all duration-300" />
+            <span className="relative z-10">Select Photo</span>
+          </span>
+        </div>
+
+        {/* File Specs Footer */}
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-6 border-t border-gray-200/60 w-full max-w-sm">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+            <FileType className="w-4 h-4 text-gray-400" />
+            JPG, PNG, WEBP
           </div>
-        )}
+          <div className="w-1 h-1 rounded-full bg-gray-300 hidden sm:block" />
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-gray-400" />
+            Up to 20MB
+          </div>
+        </div>
+
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ImageUploader
+export default memo(ImageUploader);
