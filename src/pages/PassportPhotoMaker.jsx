@@ -4,7 +4,7 @@ import {
   Image as ImageIcon, Loader2, Sliders, Upload, Undo2, ZoomIn, RotateCw, 
   Grid, Printer, FileImage, Palette, ArrowLeft, ArrowRight, ChevronRight, 
   ChevronLeft, Contrast, Droplet, Eye, X, Shield, Zap, Users, Sun, Eraser, 
-  CheckCircle, Type, FileCheck2
+  CheckCircle, Type, FileCheck2, HelpCircle, FileText, CheckCircle2, ChevronUp, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import SEO from '../pages/SEO';
@@ -74,13 +74,13 @@ export default function PassportPhotoMaker() {
   const eraserCanvasRef = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
   const hasErasedRef = useRef(false);
+  const eraserAnimationFrameRef = useRef(null);
 
   // Background Removal Progress
   const [backgroundRemoved, setBackgroundRemoved] = useState(false);
   const [removalProgress, setRemovalProgress] = useState(0);
   const [removalStage, setRemovalStage] = useState('analyzing');
   const [isRemovalComplete, setIsRemovalComplete] = useState(false);
-  // Optional: keep overlay state in case you want to use it elsewhere, but disabled for BG removal
   const [showProgressOverlay, setShowProgressOverlay] = useState(false);
   const progressIntervalRef = useRef(null);
 
@@ -111,6 +111,9 @@ export default function PassportPhotoMaker() {
   const [initialCropSet, setInitialCropSet] = useState(false);
   const [currentAspectRatioString, setCurrentAspectRatioString] = useState('Free');
 
+  // Performance RAF Refs
+  const cropAnimationFrameRef = useRef(null);
+
   // Refs
   const imageRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -134,6 +137,39 @@ export default function PassportPhotoMaker() {
     { dir: 'w', style: { top: '50%', left: -8, transform: 'translateY(-50%)' } }
   ], []);
 
+  // Schema Markup for SEO
+  const breadcrumbSchema = useMemo(() => ({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://Uploadio.com" },
+      { "@type": "ListItem", "position": 2, "name": "Passport Photo Maker", "item": "https://Uploadio.com/passport-photo-maker" }
+    ]
+  }), []);
+
+  const faqSchema = useMemo(() => ({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What are the standard passport photo dimensions?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The most common passport photo dimension is 35x45 mm (used in India, UK, and Europe) and 2x2 inches / 51x51 mm (used in the US)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I print these passport photos on standard home photo paper?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! You can generate a 4x6 inch or A4 printable grid layout sheet directly from our app and print it on standard photo paper."
+        }
+      }
+    ]
+  }), []);
+
   // --- CORE LOGIC ---
 
   const resetAllAdjustments = useCallback(() => {
@@ -148,7 +184,7 @@ export default function PassportPhotoMaker() {
     setUploadedImage(null); setCropResult(null); setBgRemovedResult(null); setFinalProcessedImage(null);
     setBackgroundRemoved(false); setIsProcessing(false); setShowPrintSheet(false); setCurrentStep(1);
     setIsCropMode(false); setIsEraserMode(false); setIsErasing(false); setEraserHistory([]);
-    setInitialCropSet(false); resetAllAdjustments();
+    setInitialCropSet(false); setIsMobileBottomSheet(false); resetAllAdjustments();
     toast.success('Started over.', { icon: '🔄' });
   }, [resetAllAdjustments]);
 
@@ -263,7 +299,12 @@ export default function PassportPhotoMaker() {
 
   const processCropMove = useCallback((clientX, clientY) => {
     if (!isDragging && !isResizing) return;
-    requestAnimationFrame(() => {
+
+    if (cropAnimationFrameRef.current) {
+      cancelAnimationFrame(cropAnimationFrameRef.current);
+    }
+
+    cropAnimationFrameRef.current = requestAnimationFrame(() => {
       const mousePos = getMousePositionInImage(clientX, clientY);
       
       if (isDragging) {
@@ -335,7 +376,9 @@ export default function PassportPhotoMaker() {
   useEffect(() => {
     if (!isDragging && !isResizing) return;
     const handleMouseMove = (e) => processCropMove(e.clientX, e.clientY);
-    const handleTouchMove = (e) => processCropMove(e.touches[0].clientX, e.touches[0].clientY);
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 0) processCropMove(e.touches[0].clientX, e.touches[0].clientY);
+    };
     const handleUp = () => { setIsDragging(false); setIsResizing(false); setResizeDirection(null); };
     
     window.addEventListener('mousemove', handleMouseMove);
@@ -348,6 +391,7 @@ export default function PassportPhotoMaker() {
       window.removeEventListener('mouseup', handleUp);
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleUp);
+      if (cropAnimationFrameRef.current) cancelAnimationFrame(cropAnimationFrameRef.current);
     };
   }, [isDragging, isResizing, processCropMove]);
 
@@ -365,6 +409,7 @@ export default function PassportPhotoMaker() {
       boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
       cursor: 'move',
       zIndex: 20,
+      touchAction: 'none'
     };
   }, [getRenderedImageMetrics, isCropMode, cropPosition, cropSize]);
 
@@ -431,8 +476,6 @@ export default function PassportPhotoMaker() {
     const stages = ['Analyzing image...', 'Detecting subject...', 'Removing background...', 'Refining edges...', 'Optimizing details...'];
     let stageIndex = 0;
     
-    // We intentionally disable the full-screen progress overlay 
-    // to utilize the much sleeker inline scanning animation instead.
     setShowProgressOverlay(false);
     setRemovalProgress(0);
     setRemovalStage(stages[0]);
@@ -510,7 +553,6 @@ export default function PassportPhotoMaker() {
       };
       img.src = bgRemovedResult;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEraserMode]);
 
   const getEraserMousePosition = useCallback((e) => {
@@ -557,8 +599,12 @@ export default function PassportPhotoMaker() {
     e.preventDefault();
     hasErasedRef.current = true;
     const pos = getEraserMousePosition(e);
-    drawErase(lastPos.current.x, lastPos.current.y, pos.x, pos.y);
-    lastPos.current = pos;
+    
+    if (eraserAnimationFrameRef.current) cancelAnimationFrame(eraserAnimationFrameRef.current);
+    eraserAnimationFrameRef.current = requestAnimationFrame(() => {
+      drawErase(lastPos.current.x, lastPos.current.y, pos.x, pos.y);
+      lastPos.current = pos;
+    });
   }, [isErasing, isEraserMode, getEraserMousePosition, drawErase]);
 
   const handleEraserEnd = useCallback(() => {
@@ -595,7 +641,6 @@ export default function PassportPhotoMaker() {
     }
   }, [eraserHistory]);
 
-
   // --- FINAL IMAGE GENERATION ---
   
   const generateFinalImage = useCallback(async () => {
@@ -612,13 +657,11 @@ export default function PassportPhotoMaker() {
         canvas.width = img.width;
         canvas.height = img.height;
 
-        // Apply Background
         if (bgColor && bgColor !== 'transparent') {
           ctx.fillStyle = bgColor;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Apply Adjustments
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate((rotation * Math.PI) / 180);
@@ -636,7 +679,6 @@ export default function PassportPhotoMaker() {
         ctx.drawImage(img, 0, 0);
         ctx.restore();
 
-        // Apply Name/Date Overlay
         if (enableNameDate && (personName || photoDate)) {
           const boxHeight = Math.max(40, Math.round(canvas.height * 0.16));
           const boxY = canvas.height - boxHeight;
@@ -678,7 +720,6 @@ export default function PassportPhotoMaker() {
     });
   }, [bgRemovedResult, cropResult, uploadedImage, bgColor, brightness, contrast, saturation, sharpness, exposure, zoom, rotation, enableNameDate, personName, photoDate, fontSize]);
 
-
   // --- NAVIGATION ---
   const canProceed = useCallback(() => {
     switch (currentStep) {
@@ -713,6 +754,7 @@ export default function PassportPhotoMaker() {
 
     setCurrentStep(step);
     setIsCropMode(step === 2);
+    setIsMobileBottomSheet(false);
   }, [currentStep, uploadedImage, handleStartOver, generateFinalImage, resetAllAdjustments]);
 
   const prevStep = useCallback(() => {
@@ -721,7 +763,6 @@ export default function PassportPhotoMaker() {
       goToStep(currentStep - 1);
     }
   }, [currentStep, uploadedImage, goToStep]);
-
 
   // --- EXPORT & PRINT ---
   const downloadImage = useCallback(async (format = 'png') => {
@@ -778,7 +819,6 @@ export default function PassportPhotoMaker() {
       setIsProcessing(false);
     }
   }, [finalProcessedImage, passportWidth, passportHeight, passportUnit]);
-
 
   // --- VIEW RENDERING DELEGATES ---
 
@@ -849,9 +889,9 @@ export default function PassportPhotoMaker() {
 
       case 2: // CROP
         return (
-          <div className="relative w-full h-full flex items-center justify-center p-4">
+          <div className="relative w-full h-full flex items-center justify-center p-2 md:p-4 max-md:touch-none">
             {activeSourceImage ? (
-              <div className="relative inline-block overflow-hidden rounded-lg shadow-2xl" style={{ lineHeight: 0 }}>
+              <div className="relative inline-block overflow-hidden rounded-lg shadow-2xl max-md:max-h-[60vh] max-md:max-w-[90vw]" style={{ lineHeight: 0 }}>
                 <img 
                   ref={imageRef} 
                   src={activeSourceImage} 
@@ -860,7 +900,7 @@ export default function PassportPhotoMaker() {
                     setOriginalImageDimensions({ width: e.target.naturalWidth, height: e.target.naturalHeight });
                     setImageLoaded(true);
                   }}
-                  className="max-w-full max-h-[70vh] w-auto h-auto block object-contain select-none" 
+                  className="max-w-full max-h-[70vh] max-md:max-h-[58vh] w-auto h-auto block object-contain select-none" 
                   draggable={false} 
                 />
                 {isCropMode && imageLoaded && originalImageDimensions.width > 0 && initialCropSet && (
@@ -875,7 +915,7 @@ export default function PassportPhotoMaker() {
                         </div>
                       )}
                       {handlePositions.map(({ dir, style }) => (
-                        <div key={dir} className="resize-handle" data-direction={dir} 
+                        <div key={dir} className="resize-handle max-md:w-7 max-md:h-7" data-direction={dir} 
                           style={{ position: 'absolute', width: '20px', height: '20px', backgroundColor: '#FFFFFF', border: '2px solid #3B82F6', borderRadius: '50%', cursor: `${dir}-resize`, zIndex: 20, touchAction: 'none', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', ...style }} 
                         />
                       ))}
@@ -911,9 +951,9 @@ export default function PassportPhotoMaker() {
                 </button>
               )}
               
-              <div className={`relative w-full h-full overflow-auto custom-scrollbar z-10 ${isEraserMode ? 'bg-slate-100 p-0 m-0 flex items-start justify-start' : 'p-4 md:p-8 flex items-center justify-center'}`}>
+              <div className={`relative w-full h-full overflow-auto custom-scrollbar z-10 ${isEraserMode ? 'bg-slate-100 p-0 m-0 flex items-start justify-start touch-none' : 'p-4 md:p-8 flex items-center justify-center'}`}>
                 {isEraserMode && bgRemovedResult ? (
-                  <div style={{ transform: `scale(${eraserZoom / 100})`, transformOrigin: 'top left', minWidth: '100%', minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="relative p-8">
+                  <div style={{ transform: `scale(${eraserZoom / 100})`, transformOrigin: 'top left', minWidth: '100%', minHeight: '100%', display: 'flex', items: 'center', justifyContent: 'center' }} className="relative p-8">
                      <div className="relative inline-block shadow-2xl rounded-lg overflow-hidden bg-transparent">
                        <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: 'repeating-conic-gradient(#cbd5e1 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}></div>
                        <canvas 
@@ -933,18 +973,12 @@ export default function PassportPhotoMaker() {
                 ) : activeSourceImage ? (
                   <div className="relative inline-block shadow-2xl transition-colors duration-200 rounded-lg overflow-hidden" style={{ backgroundColor: !isEraserMode && bgColor !== 'transparent' ? bgColor : undefined }}>
                      {backgroundRemoved && bgColor === 'transparent' && <div className="absolute inset-0 z-0 opacity-20" style={{ backgroundImage: 'repeating-conic-gradient(#cbd5e1 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}></div>}
-                     <img src={activeSourceImage} alt="Preview" className="relative z-10 max-w-full max-h-[60vh] object-contain pointer-events-none block" loading="lazy" />
+                     <img src={activeSourceImage} alt="Preview" className="relative z-10 max-w-full max-h-[60vh] max-md:max-h-[48vh] object-contain pointer-events-none block" loading="lazy" />
 
-                     {/* INLINE AI SCANNING ANIMATION */}
                      {isProcessing && !backgroundRemoved && (
                         <div className="absolute inset-0 z-20 overflow-hidden rounded-lg pointer-events-none">
-                           {/* Darken background slightly */}
                            <div className="absolute inset-0 bg-purple-900/30 backdrop-blur-[2px] transition-all duration-300"></div>
-
-                           {/* Scanning Laser Line */}
                            <div className="absolute top-0 left-0 w-full h-1 bg-purple-400 shadow-[0_0_20px_5px_rgba(168,85,247,0.6)] animate-[scan_2s_ease-in-out_infinite]"></div>
-
-                           {/* Centered Progress Indicator */}
                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white drop-shadow-xl">
                               <div className="bg-gray-900/80 backdrop-blur-md px-6 py-4 rounded-2xl flex flex-col items-center border border-white/10 shadow-2xl">
                                   <Wand2 className="w-8 h-8 animate-bounce mb-3 text-purple-400" />
@@ -995,13 +1029,13 @@ export default function PassportPhotoMaker() {
                     <img 
                       src={activeSourceImage} 
                       alt="Edited preview" 
-                      className="relative z-10 max-w-full max-h-[65vh] object-contain select-none block" 
+                      className="relative z-10 max-w-full max-h-[65vh] max-md:max-h-[48vh] object-contain select-none block" 
                       style={imageFilterStyle}
                       draggable={false} 
                     />
                     
                     {enableNameDate && (personName || photoDate) && (
-                       <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-300 flex flex-col items-center justify-center overflow-hidden z-30" 
+                        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-300 flex flex-col items-center justify-center overflow-hidden z-30" 
                             style={{ height: '16%', minHeight: '40px' }}>
                           <span className="font-bold text-gray-900 text-center uppercase truncate w-full px-2" style={{ fontSize: `${Math.max(10, fontSize)}px`, lineHeight: 1.1 }}>
                             {personName}
@@ -1011,7 +1045,7 @@ export default function PassportPhotoMaker() {
                               {photoDate}
                             </span>
                           )}
-                       </div>
+                        </div>
                     )}
                   </div>
                 </div>
@@ -1022,16 +1056,16 @@ export default function PassportPhotoMaker() {
           </div>
         );
 
-      case 5: // FINALIZE (Split Layout Full Width)
+      case 5: // FINALIZE
         return (
           <div className="w-full h-full p-4 md:p-8 flex flex-col lg:flex-row gap-6 lg:gap-10 items-center justify-center bg-gray-50/50 overflow-y-auto custom-scrollbar">
             
-            {/* Left: Premium Preview Box */}
+            {/* Left Preview */}
             <div className="flex-1 w-full max-w-2xl flex flex-col items-center justify-center animate-in fade-in slide-in-from-left-8 duration-700">
                <div className="relative p-6 md:p-10 bg-white rounded-[2rem] shadow-xl border border-gray-100 w-full flex items-center justify-center">
                   <div className="absolute inset-0 z-0 opacity-10 rounded-[2rem]" style={{ backgroundImage: 'repeating-conic-gradient(#64748b 0% 25%, transparent 0% 50%)', backgroundSize: '30px 30px' }}></div>
                   {finalProcessedImage ? (
-                    <img src={finalProcessedImage} alt="Final passport preview" className="relative z-10 max-h-[55vh] object-contain drop-shadow-2xl rounded-md ring-1 ring-black/5" />
+                    <img src={finalProcessedImage} alt="Final passport preview" className="relative z-10 max-h-[55vh] max-md:max-h-[40vh] object-contain drop-shadow-2xl rounded-md ring-1 ring-black/5" />
                   ) : (
                     <div className="py-20 flex flex-col items-center"><Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" /><span className="font-medium text-gray-500">Generating High-Res Image...</span></div>
                   )}
@@ -1042,9 +1076,8 @@ export default function PassportPhotoMaker() {
                </div>
             </div>
 
-            {/* Right: Export Actions */}
+            {/* Right Export Actions */}
             <div className="w-full lg:w-[420px] flex flex-col gap-6 animate-in fade-in slide-in-from-right-8 duration-700">
-               
                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 md:p-8">
                   <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center mb-4 border border-green-100"><Download className="w-6 h-6 text-green-600" /></div>
                   <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Export Photo</h3>
@@ -1067,8 +1100,8 @@ export default function PassportPhotoMaker() {
                     <Button onClick={() => setShowPrintSheet(true)} icon={Layers} size="lg" className="w-full bg-white text-indigo-900 hover:bg-indigo-50 shadow-lg shadow-black/20 py-4 text-sm font-bold border-none">Generate Print Sheet</Button>
                   </div>
                </div>
-
             </div>
+
           </div>
         );
 
@@ -1078,7 +1111,19 @@ export default function PassportPhotoMaker() {
 
   return (
     <>
-      <SEO title="Passport Photo Maker - Professional ID Studio" description="Create compliant passport photos with AI background removal, custom cropping, and print sheets." url="https://Uploadio.com/passport-photo-maker" />
+      <SEO 
+        title="Free AI Passport Photo Maker - Official ID Studio" 
+        description="Create compliant passport and visa photos instantly with AI background removal, custom dimensions, name/date overlay, and printable grid sheets." 
+        url="https://Uploadio.com/passport-photo-maker" 
+      />
+
+      <script type="application/ld+json">
+        {JSON.stringify(breadcrumbSchema)}
+      </script>
+      <script type="application/ld+json">
+        {JSON.stringify(faqSchema)}
+      </script>
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; } 
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; } 
@@ -1095,10 +1140,9 @@ export default function PassportPhotoMaker() {
         }
       `}</style>
 
-      {/* Note: showProgressOverlay is now bypassed for inline UI, but kept logic intact incase needed later */}
       {showProgressOverlay && <BackgroundRemovalProgress progress={removalProgress} stage={removalStage} isComplete={isRemovalComplete} />}
 
-      <div className="h-screen flex flex-col bg-slate-50/50 overflow-hidden font-sans">
+      <div className="min-h-screen flex flex-col bg-slate-50/50 overflow-x-hidden font-sans">
         
         {/* Top Header */}
         <header className="h-14 bg-white/90 backdrop-blur-xl border-b border-gray-200/80 flex items-center px-3 md:px-5 gap-2 flex-shrink-0 z-30 shadow-sm">
@@ -1109,22 +1153,29 @@ export default function PassportPhotoMaker() {
             <span className="font-extrabold text-gray-900 text-sm tracking-tight hidden sm:inline">Passport Studio</span>
           </div>
 
+          {/* Mobile Current Step Bar Badge */}
+          <div className="flex md:hidden items-center gap-1.5 ml-2 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+            <span className="text-[11px] font-bold text-blue-600">Step {currentStep}/5:</span>
+            <span className="text-[11px] font-extrabold text-slate-800">{steps.find(s => s.id === currentStep)?.label}</span>
+          </div>
+
           <div className="ml-auto flex items-center gap-2">
-            {uploadedImage && <Button variant="outline" size="sm" icon={Upload} onClick={handleStartOver} className="text-xs px-3 py-1.5 shadow-sm bg-white"><span className="hidden sm:inline">Upload New</span></Button>}
+            {uploadedImage && <Button variant="outline" size="sm" icon={Upload} onClick={handleStartOver} className="text-xs px-3 py-1.5 shadow-sm bg-white"><span className="hidden sm:inline">Upload New</span><span className="sm:hidden text-[11px]">New</span></Button>}
             {uploadedImage && currentStep !== 5 && (
               <button 
                 onClick={() => setIsMobileBottomSheet(!isMobileBottomSheet)} 
-                className={`p-2 rounded-xl border transition-all md:hidden shadow-sm ${isMobileBottomSheet ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                className={`p-2 rounded-xl border transition-all md:hidden shadow-sm flex items-center gap-1 ${isMobileBottomSheet ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                 aria-label="Toggle Controls"
               >
                 <Sliders className="w-4 h-4" />
+                {isMobileBottomSheet ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
         </header>
 
-        {/* Main Editor Layout */}
-        <div className="flex-1 flex overflow-hidden relative">
+        {/* Main Editor Layout Workspace */}
+        <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden relative">
           
           {/* Desktop Left Stepper Sidebar */}
           <div className={`bg-white/80 backdrop-blur-xl border-r border-gray-200/80 flex-shrink-0 transition-all duration-300 ease-in-out overflow-y-auto hidden md:block z-20 ${isLeftPanelCollapsed ? 'w-16' : 'w-56 lg:w-64'}`}>
@@ -1164,8 +1215,8 @@ export default function PassportPhotoMaker() {
             </div>
 
             {/* Bottom Step Navigation Bar */}
-            <div className="flex-shrink-0 bg-white/90 backdrop-blur-xl border-t border-gray-200/80 px-4 py-3 flex items-center justify-between z-20 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-              <Button variant="secondary" size="md" icon={ArrowLeft} onClick={prevStep} disabled={currentStep === 1} className="py-2 text-sm bg-white shadow-sm hover:bg-gray-50">Back</Button>
+            <div className="flex-shrink-0 bg-white/90 backdrop-blur-xl border-t border-gray-200/80 px-4 py-3 flex items-center justify-between z-20 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)] max-md:pb- safe-area-bottom">
+              <Button variant="secondary" size="md" icon={ArrowLeft} onClick={prevStep} disabled={currentStep === 1} className="py-2 text-sm bg-white shadow-sm hover:bg-gray-50 max-md:px-3 max-md:text-xs">Back</Button>
               
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5 hidden sm:flex">
@@ -1173,7 +1224,18 @@ export default function PassportPhotoMaker() {
                     <div key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${s.id === currentStep ? 'w-6 bg-blue-600' : s.id < currentStep ? 'w-2 bg-blue-300' : 'w-2 bg-gray-200'}`} />
                   ))}
                 </div>
-                <span className="text-xs font-bold text-gray-500 sm:hidden">Step {currentStep} of 5</span>
+                
+                {/* Mobile Bottom Quick Drawer Toggle Pill */}
+                {uploadedImage && currentStep !== 5 && (
+                  <button 
+                    onClick={() => setIsMobileBottomSheet(!isMobileBottomSheet)} 
+                    className="sm:hidden px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold flex items-center gap-1 border border-slate-200 active:scale-95 transition-transform"
+                  >
+                    <Sliders className="w-3 h-3 text-blue-600" />
+                    <span>Tools</span>
+                    {isMobileBottomSheet ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                  </button>
+                )}
               </div>
 
               <Button variant="primary" size="md" icon={currentStep === 5 ? Check : ArrowRight} 
@@ -1183,13 +1245,13 @@ export default function PassportPhotoMaker() {
                   goToStep(currentStep + 1);
                 }} 
                 disabled={!canProceed() || isProcessing} 
-                className="py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-500/20 font-semibold px-6">
+                className="py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-500/20 font-semibold px-6 max-md:px-4 max-md:text-xs">
                 {currentStep === 4 ? 'Save & Finalize' : currentStep === 5 ? 'Done' : 'Next'}
               </Button>
             </div>
           </div>
 
-          {/* Desktop Right Settings Panel (Hidden on Finalize step) */}
+          {/* Desktop Right Settings Panel */}
           {uploadedImage && isRightPanelOpen && currentStep !== 5 && (
             <div className="bg-white/90 backdrop-blur-xl border-l border-gray-200/80 overflow-y-auto flex-shrink-0 p-4 custom-scrollbar hidden md:block lg:w-80 w-72 space-y-4 z-20 shadow-[-4px_0_24px_-10px_rgba(0,0,0,0.05)]">
               <div className="space-y-4 pb-10 animate-in fade-in duration-300">
@@ -1368,15 +1430,32 @@ export default function PassportPhotoMaker() {
             </div>
           )}
 
-          {/* Mobile Bottom Sheet Drawer for Settings */}
+          {/* Mobile Bottom Sheet Drawer for Settings - OPTIMIZED TOUCH UI */}
           {uploadedImage && currentStep !== 5 && (
-            <div className={`fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-2xl rounded-t-[2rem] border-t border-gray-200 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 ease-out md:hidden max-h-[75vh] flex flex-col ${isMobileBottomSheet ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}>
-              <div className="p-3 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white/50 rounded-t-[2rem]">
+            <div 
+              className={`fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-2xl rounded-t-[2rem] border-t border-gray-200 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.15)] transition-transform duration-300 ease-out md:hidden max-h-[65vh] flex flex-col will-change-transform ${isMobileBottomSheet ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
+              style={{ overscrollBehavior: 'contain' }}
+            >
+              {/* Touch Drag / Dismiss Header */}
+              <div 
+                onClick={() => setIsMobileBottomSheet(false)}
+                className="p-3 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white/80 rounded-t-[2rem] cursor-pointer"
+              >
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2.5" />
-                <span className="text-sm font-extrabold text-gray-800 pt-3 px-2">Settings & Tools</span>
-                <button onClick={() => setIsMobileBottomSheet(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500 mt-1"><X className="w-5 h-5" /></button>
+                <span className="text-xs font-extrabold text-gray-800 pt-2 px-2 flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-blue-600" />
+                  {steps.find(s => s.id === currentStep)?.label} Tools
+                </span>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setIsMobileBottomSheet(false); }} 
+                  className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div className="p-4 overflow-y-auto custom-scrollbar flex-1 pb-8 space-y-4">
+
+              {/* Scrollable Mobile Settings Panel */}
+              <div className="p-4 overflow-y-auto custom-scrollbar flex-1 pb-10 space-y-4 overscroll-contain -webkit-overflow-scrolling-touch">
                 
                 {currentStep === 3 && <Step3Controls />}
 
@@ -1396,7 +1475,10 @@ export default function PassportPhotoMaker() {
                           <div className="space-y-3 pt-2 border-t border-gray-100">
                             <input type="text" value={personName} onChange={(e) => setPersonName(e.target.value)} placeholder="FULL NAME" className="w-full px-3 py-2 text-sm font-bold uppercase border border-gray-200 rounded-xl bg-gray-50 focus:bg-white" />
                             <input type="text" value={photoDate} onChange={(e) => setPhotoDate(e.target.value)} placeholder="DATE (e.g. 15-08-2024)" className="w-full px-3 py-2 text-sm font-bold border border-gray-200 rounded-xl bg-gray-50 focus:bg-white" />
-                            <input type="range" min="10" max="26" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-full accent-blue-600" />
+                            <div className="pt-1">
+                              <label className="text-xs font-bold text-gray-600 block mb-1">Font Size ({fontSize}px)</label>
+                              <input type="range" min="10" max="26" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-full accent-blue-600" />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1405,8 +1487,10 @@ export default function PassportPhotoMaker() {
                     <PanelSection title="Image Adjustments" icon={Sliders} defaultOpen={true}>
                       <div className="space-y-4">
                         <SliderControl label="Zoom" value={zoom} onChange={setZoom} min={50} max={200} icon={ZoomIn} resetValue={100} />
+                        <SliderControl label="Rotation" value={rotation} onChange={setRotation} min={-180} max={180} icon={RotateCw} resetValue={0} />
                         <SliderControl label="Brightness" value={brightness} onChange={setBrightness} min={-100} max={100} icon={Sun} resetValue={0} />
                         <SliderControl label="Contrast" value={contrast} onChange={setContrast} min={-100} max={100} icon={Contrast} resetValue={0} />
+                        <SliderControl label="Saturation" value={saturation} onChange={setSaturation} min={-100} max={100} icon={Droplet} resetValue={0} />
                       </div>
                     </PanelSection>
                   </>
@@ -1438,8 +1522,14 @@ export default function PassportPhotoMaker() {
                                 }));
                               }
                             }}
-                            className={`px-2 py-2 text-xs font-bold rounded-xl border ${cropAspectRatio === (ratio === 'Free' ? null : ratio) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white'}`}>{ratio}</button>
+                            className={`px-2 py-2 text-xs font-bold rounded-xl border touch-manipulation ${cropAspectRatio === (ratio === 'Free' ? null : ratio) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white'}`}>{ratio}</button>
                         ))}
+                     </div>
+                     <div className="flex items-center justify-between p-2 bg-gray-50 rounded-xl mb-4">
+                        <span className="text-xs font-bold text-gray-700">Grid Overlay</span>
+                        <button onClick={() => setShowGrid(!showGrid)} className={`relative w-10 h-5 rounded-full transition-colors ${showGrid ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                           <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${showGrid ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
                      </div>
                      <Button onClick={applyCrop} icon={Check} size="md" fullWidth disabled={isProcessing || !imageLoaded} className="bg-blue-600 text-white font-bold mb-2">Apply Crop</Button>
                    </PanelSection>
@@ -1450,10 +1540,10 @@ export default function PassportPhotoMaker() {
           )}
         </div>
 
-        {/* Print Sheet Modal (Now max-w-7xl) */}
+        {/* Print Sheet Modal */}
         {showPrintSheet && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-[95vw] h-[95vh] overflow-hidden flex flex-col border border-white/20">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-50 p-2 md:p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-7xl w-[98vw] md:w-[95vw] h-[95vh] overflow-hidden flex flex-col border border-white/20">
               <div className="p-0 md:p-4 overflow-hidden flex-1 bg-gray-50/30">
                 <Suspense fallback={<div className="p-12 text-center flex flex-col items-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" /><span className="text-sm font-semibold text-gray-500">Preparing layout engine...</span></div>}>
                   <PrintSheetGenerator passportPhoto={finalProcessedImage || cropResult} passportSize={{ width: passportWidth, height: passportHeight, unit: passportUnit }} onBack={() => setShowPrintSheet(false)} />
@@ -1462,6 +1552,73 @@ export default function PassportPhotoMaker() {
             </div>
           </div>
         )}
+
+        {/* --- EDUCATIONAL BLOG & FAQ SECTION (SEO BOOST) --- */}
+        <section className="bg-white border-t border-slate-200/80 py-16 px-4 md:px-8">
+          <div className="max-w-4xl mx-auto space-y-12">
+            
+            {/* Guide Intro */}
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-4">
+                Creating Official Passport & Visa Photos Online
+              </h2>
+              <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                Official biometric passport standards require precise proportions, uniform lighting, and explicit background contrast. Standard requirements dictate that facial features—from the chin to the top of the forehead—occupy 70% to 80% of the overall frame height, with zero shadows or subject tilt.
+              </p>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                This online tool streamlines ID asset creation by combining automated background replacement, standard aspect ratio presets (e.g., 35x45 mm or 2x2 inches), and customizable print sheet composition for home or pharmacy printouts.
+              </p>
+            </div>
+
+            {/* Standard Size Comparison Grid */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Global Passport & Visa Specifications
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">India, UK, Europe</span>
+                  <h4 className="text-sm font-extrabold text-slate-900 mt-1">35 x 45 mm</h4>
+                  <p className="text-[11px] text-slate-500 mt-1">Light grey or plain white background required depending on jurisdiction.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">United States</span>
+                  <h4 className="text-sm font-extrabold text-slate-900 mt-1">2 x 2 inches (51x51 mm)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1">Off-white or plain white backdrop with direct forward facial orientation.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">China Visa</span>
+                  <h4 className="text-sm font-extrabold text-slate-900 mt-1">33 x 48 mm</h4>
+                  <p className="text-[11px] text-slate-500 mt-1">Strict plain white backdrop with specific facial height parameters.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* FAQ Section */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-blue-600" />
+                Frequently Asked Questions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">How do I add a Name and Date of Photo (DOP) caption?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Under Step 4 (Adjustments), toggle the **Name & Date Overlay** control. Input the full name and photo date to overlay an official white text banner along the bottom border of your passport image.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">How do I print multiple photos on a single 4x6 inch paper?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Once your photo is finalized, click **Generate Print Sheet** on Step 5. Choose your paper size (4x6" or A4) to automatically position aligned photo grids with cut guidelines.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
 
       </div>
     </>

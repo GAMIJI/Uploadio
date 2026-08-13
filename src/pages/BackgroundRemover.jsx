@@ -1,35 +1,36 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Download, RotateCcw, Sparkles, Eye, Wand2, CheckCircle, Image as ImageIcon, Palette, Eraser, Undo2, Check } from 'lucide-react'
+import { Download, RotateCcw, Sparkles, Wand2, CheckCircle, Image as ImageIcon, Palette, Eraser, Undo2, Check, Zap, Layers, ShieldCheck, HelpCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import SEO from './SEO'
 import ImageUploader from '../components/ImageUploader'
 import { removeBackground } from '../services/backgroundRemoval'
 
+const PRESET_COLORS = [
+  { id: 'transparent', hex: 'transparent', label: 'Transparent' },
+  { id: 'white', hex: '#FFFFFF', label: 'White' },
+  { id: 'gray', hex: '#F3F4F6', label: 'Light Gray' },
+  { id: 'black', hex: '#000000', label: 'Black' },
+  { id: 'blue', hex: '#3B82F6', label: 'Blue' },
+  { id: 'pink', hex: '#EC4899', label: 'Pink' },
+]
+
 const BackgroundRemover = () => {
   const [originalImage, setOriginalImage] = useState(null)
   const [processedImage, setProcessedImage] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [activeView, setActiveView] = useState('original') // 'original' | 'removed'
+  const [activeView, setActiveView] = useState('original')
   const [bgColor, setBgColor] = useState('transparent')
   const [customColor, setCustomColor] = useState('#8B5CF6')
 
-  // --- ERASER / TOUCH-UP TOOL STATE ---
+  // Touch-up / Eraser state
   const [isEraserMode, setIsEraserMode] = useState(false)
   const [eraserSize, setEraserSize] = useState(20)
   const [eraserZoom, setEraserZoom] = useState(100)
   const [isErasing, setIsErasing] = useState(false)
   const [eraserHistory, setEraserHistory] = useState([])
+  
   const eraserCanvasRef = useRef(null)
   const lastPos = useRef({ x: 0, y: 0 })
-
-  const presetColors = [
-    { id: 'transparent', hex: 'transparent', label: 'Transparent' },
-    { id: 'white', hex: '#FFFFFF', label: 'White' },
-    { id: 'gray', hex: '#F3F4F6', label: 'Light Gray' },
-    { id: 'black', hex: '#000000', label: 'Black' },
-    { id: 'blue', hex: '#3B82F6', label: 'Blue' },
-    { id: 'pink', hex: '#EC4899', label: 'Pink' },
-  ]
 
   const handleImageUpload = (image) => {
     setOriginalImage(image)
@@ -63,7 +64,7 @@ const BackgroundRemover = () => {
     }
   }
 
-  // --- ERASER CANVAS INITIALIZATION ---
+  // Eraser Canvas Initialization
   useEffect(() => {
     if (isEraserMode && eraserCanvasRef.current && processedImage) {
       const canvas = eraserCanvasRef.current
@@ -107,7 +108,6 @@ const BackgroundRemover = () => {
 
   const handleEraserStart = useCallback((e) => {
     if (!isEraserMode) return
-    e.preventDefault()
     setIsErasing(true)
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
@@ -165,11 +165,11 @@ const BackgroundRemover = () => {
       link.download = `removed-bg-${Date.now()}.png`
       link.href = processedImage
       link.click()
-      toast.success('Transparent PNG downloaded successfully!', { icon: '🎉' })
+      toast.success('Transparent PNG downloaded!', { icon: '🎉' })
       return
     }
 
-    const toastId = toast.loading('Applying background color...')
+    const toastId = toast.loading('Exporting image...')
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.onload = () => {
@@ -183,12 +183,12 @@ const BackgroundRemover = () => {
       ctx.drawImage(img, 0, 0)
 
       const link = document.createElement('a')
-      link.download = `colored-bg-${Date.now()}.jpg`
+      link.download = `background-image-${Date.now()}.jpg`
       link.href = canvas.toDataURL('image/jpeg', 0.95)
       link.click()
-      toast.success('Image downloaded successfully!', { id: toastId, icon: '🎉' })
+      toast.success('Image exported successfully!', { id: toastId, icon: '🎉' })
     }
-    img.onerror = () => toast.error('Failed to apply background color', { id: toastId })
+    img.onerror = () => toast.error('Export failed. Try again.', { id: toastId })
     img.src = processedImage
   }
 
@@ -220,8 +220,8 @@ const BackgroundRemover = () => {
   return (
     <>
       <SEO 
-        title="Background Remover - Remove Image Background with AI"
-        description="Remove background from any image instantly with AI. Get transparent PNG results in seconds. Free and easy to use."
+        title="Free AI Background Remover - Instant Transparent PNGs"
+        description="Remove image backgrounds instantly in high quality with our AI tool. Includes manual fine-tuning, custom backdrop replacement, and zero registration."
         url="https://Uploadio.com/background-remover"
       />
       
@@ -229,80 +229,84 @@ const BackgroundRemover = () => {
         {JSON.stringify(breadcrumbSchema)}
       </script>
 
-      <div className="min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)] bg-gradient-to-br from-gray-50 to-gray-100 relative font-sans flex flex-col pb-12 overflow-x-hidden">
-        
-        <div 
-          className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-          style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }} 
-        />
+      <div className="min-h-screen bg-slate-50 relative font-sans flex flex-col overflow-x-hidden">
+        {/* Background Decorative Gradients */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] pointer-events-none overflow-hidden">
+          <div className="absolute -top-32 left-1/4 w-96 h-96 bg-purple-300/30 rounded-full blur-3xl" />
+          <div className="absolute -top-20 right-1/4 w-96 h-96 bg-pink-300/30 rounded-full blur-3xl" />
+        </div>
 
-        <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-purple-400/20 rounded-full blur-[100px] pointer-events-none -translate-y-1/2" />
-        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-pink-400/20 rounded-full blur-[100px] pointer-events-none translate-y-1/2" />
-
-        <div className="flex-1 flex flex-col container mx-auto px-4 pt-8 md:pt-12 relative z-10 w-full max-w-6xl">
-            
-          <div className="text-center mb-8 md:mb-10 shrink-0 animate-in fade-in slide-in-from-top-4 duration-700">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 tracking-tight">
-              AI Background Remover
+        {/* Main Application Container */}
+        <main className="flex-1 container mx-auto px-4 pt-8 md:pt-12 pb-16 relative z-10 max-w-6xl">
+          
+          {/* Section Header */}
+          <header className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-purple-700 text-xs font-semibold mb-4">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Next-Gen Machine Vision</span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-3">
+              Remove Backgrounds <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Instantly</span>
             </h1>
-            <p className="text-sm text-gray-500 max-w-xl mx-auto font-medium">
-              Extract subjects instantly with pixel-perfect AI precision & manual touch-up tools.
+            <p className="text-slate-600 text-sm md:text-base max-w-xl mx-auto font-normal leading-relaxed">
+              Extract people, products, and graphics with high precision. Fine-tune edge details with integrated manual touch-up tools.
             </p>
-          </div>
+          </header>
 
-          <div className="flex-1 flex flex-col w-full mx-auto">
-            
+          {/* Interactive Workspace */}
+          <div className="w-full">
             {!originalImage ? (
-              <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-500 w-full">
-                <div className="w-full max-w-lg shrink-0 mb-8">
+              <div className="flex flex-col items-center max-w-2xl mx-auto">
+                <div className="w-full mb-10">
                   <ImageUploader onImageUpload={handleImageUpload} theme="purple" />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-3xl shrink-0 px-2">
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 border border-white shadow-lg shadow-gray-200/50 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-purple-500/30">
-                      <Sparkles className="w-5 h-5 text-white" />
+                {/* Feature Highlights Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2.5 bg-purple-50 rounded-xl text-purple-600 shrink-0">
+                      <Zap className="w-5 h-5" />
                     </div>
-                    <div className="text-left">
-                      <h3 className="text-xs font-bold text-gray-900">AI Precision</h3>
-                      <p className="text-[10px] text-gray-500 font-medium">Detects fine edges perfectly.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 border border-white shadow-lg shadow-gray-200/50 hidden md:flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
-                      <Eraser className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-xs font-bold text-gray-900">Touch-up Brush</h3>
-                      <p className="text-[10px] text-gray-500 font-medium">Manually erase remaining bits.</p>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900">Instant AI Cutouts</h3>
+                      <p className="text-[11px] text-slate-500">Auto-detect subject boundaries.</p>
                     </div>
                   </div>
-                  
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-3 border border-white shadow-lg shadow-gray-200/50 hidden md:flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/30">
-                      <Palette className="w-5 h-5 text-white" />
+
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2.5 bg-pink-50 rounded-xl text-pink-600 shrink-0">
+                      <Eraser className="w-5 h-5" />
                     </div>
-                    <div className="text-left">
-                      <h3 className="text-xs font-bold text-gray-900">Custom Colors</h3>
-                      <p className="text-[10px] text-gray-500 font-medium">Add solid backgrounds.</p>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900">Precision Eraser</h3>
+                      <p className="text-[11px] text-slate-500">Manual touch-ups for tricky edges.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600 shrink-0">
+                      <Palette className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900">Color Swapper</h3>
+                      <p className="text-[11px] text-slate-500">Apply custom solid backgrounds.</p>
                     </div>
                   </div>
                 </div>
-
               </div>
             ) : (
-              <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 animate-in fade-in zoom-in-95 duration-500">
+              <div className="flex flex-col lg:flex-row gap-6 min-h-[520px]">
                 
-                {/* Left Panel: Preview Area */}
-                <div className="flex-1 flex flex-col bg-white/80 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-purple-500/5 border border-white p-3 md:p-5 min-h-[400px]">
+                {/* Left Area: Viewport Canvas */}
+                <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200/80 p-4 md:p-6">
                   
-                  <div className="shrink-0 flex justify-between items-center mb-3">
-                    <div className="bg-gray-100/80 backdrop-blur-md p-1 rounded-full inline-flex relative shadow-inner">
+                  {/* Top Bar Navigation */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1">
                       <button
                         onClick={() => { setActiveView('original'); setIsEraserMode(false); }}
-                        className={`relative z-10 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
-                          activeView === 'original' ? 'text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeView === 'original' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         }`}
                       >
                         <ImageIcon className="w-3.5 h-3.5" />
@@ -311,44 +315,44 @@ const BackgroundRemover = () => {
                       {processedImage && (
                         <button
                           onClick={() => setActiveView('removed')}
-                          className={`relative z-10 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
-                            activeView === 'removed' ? 'text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            activeView === 'removed' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                           }`}
                         >
                           <Sparkles className="w-3.5 h-3.5" />
-                          Result
+                          Cutout
                         </button>
                       )}
-                      <div 
-                        className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full shadow-sm transition-transform duration-300 ease-out"
-                        style={{ transform: activeView === 'original' ? 'translateX(0)' : 'translateX(100%)' }}
-                      />
                     </div>
 
-                    <button onClick={resetUploader} className="text-gray-400 hover:text-purple-600 p-2 rounded-full hover:bg-purple-50 transition-colors" title="Start Over">
+                    <button 
+                      onClick={resetUploader} 
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Upload new image"
+                    >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Image Preview Container */}
+                  {/* Main Display Area */}
                   <div 
-                    className="flex-1 min-h-0 relative w-full rounded-2xl md:rounded-3xl overflow-hidden border border-gray-100 flex items-center justify-center group transition-colors duration-300"
-                    style={{ backgroundColor: activeView === 'removed' && bgColor !== 'transparent' && !isEraserMode ? bgColor : '#f9fafb' }}
+                    className="flex-1 min-h-[380px] relative rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center transition-colors"
+                    style={{ backgroundColor: activeView === 'removed' && bgColor !== 'transparent' && !isEraserMode ? bgColor : '#F8FAFC' }}
                   >
-                    
-                    <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${activeView === 'removed' && (bgColor === 'transparent' || isEraserMode) ? 'opacity-[0.06]' : 'opacity-0'}`} style={{ 
-                      backgroundImage: 'repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #fff 25%, #fff 75%, #000 75%, #000)', 
+                    {/* Checkerboard Pattern for Transparency */}
+                    <div className={`absolute inset-0 pointer-events-none transition-opacity ${activeView === 'removed' && (bgColor === 'transparent' || isEraserMode) ? 'opacity-100' : 'opacity-0'}`} style={{ 
+                      backgroundImage: 'repeating-linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0), repeating-linear-gradient(45deg, #e2e8f0 25%, #ffffff 25%, #ffffff 75%, #e2e8f0 75%, #e2e8f0)', 
                       backgroundPosition: '0 0, 10px 10px', 
                       backgroundSize: '20px 20px' 
                     }} />
 
                     {isEraserMode ? (
-                      <div className="relative w-full h-full p-2 md:p-8 flex items-center justify-center overflow-auto custom-scrollbar z-10">
-                        <style>{`.eraser-canvas { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${eraserSize}" height="${eraserSize}" viewBox="0 0 ${eraserSize} ${eraserSize}"><circle cx="${eraserSize / 2}" cy="${eraserSize / 2}" r="${eraserSize / 2 - 1}" fill="rgba(239, 68, 68, 0.4)" stroke="red" stroke-width="1"/></svg>') ${eraserSize / 2} ${eraserSize / 2}, crosshair !important; }`}</style>
+                      <div className="relative w-full h-full p-4 flex items-center justify-center overflow-auto z-10">
+                        <style>{`.eraser-canvas { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${eraserSize}" height="${eraserSize}" viewBox="0 0 ${eraserSize} ${eraserSize}"><circle cx="${eraserSize / 2}" cy="${eraserSize / 2}" r="${eraserSize / 2 - 1}" fill="rgba(239, 68, 68, 0.4)" stroke="%23ef4444" stroke-width="1"/></svg>') ${eraserSize / 2} ${eraserSize / 2}, crosshair !important; }`}</style>
                         <canvas 
                           ref={eraserCanvasRef} 
-                          className="drop-shadow-2xl eraser-canvas touch-none" 
-                          style={{ width: `${eraserZoom}%`, height: 'auto', maxWidth: eraserZoom === 100 ? '100%' : 'none', maxHeight: eraserZoom === 100 ? '100%' : 'none' }} 
+                          className="eraser-canvas touch-none max-w-full max-h-full object-contain" 
+                          style={{ width: `${eraserZoom}%`, height: 'auto' }} 
                           onMouseDown={handleEraserStart} 
                           onTouchStart={handleEraserStart} 
                           onMouseMove={handleEraserMove}
@@ -360,136 +364,121 @@ const BackgroundRemover = () => {
                     ) : activeView === 'original' || !processedImage ? (
                       <img 
                         src={originalImage.preview} 
-                        alt="Original"
-                        className="max-w-full max-h-full object-contain p-2 md:p-4 drop-shadow-2xl transition-all duration-500"
+                        alt="Original Upload"
+                        className="max-w-full max-h-[420px] object-contain p-4 drop-shadow-md"
                       />
                     ) : (
                       <img 
                         src={processedImage} 
-                        alt="Processed"
-                        className="max-w-full max-h-full object-contain p-2 md:p-4 drop-shadow-2xl transition-all duration-500 animate-in zoom-in-95"
+                        alt="Background Removed Result"
+                        className="max-w-full max-h-[420px] object-contain p-4 drop-shadow-md"
                       />
                     )}
                     
+                    {/* Processing Overlay */}
                     {isProcessing && (
-                      <div className="absolute inset-0 bg-white/60 backdrop-blur-md flex flex-col items-center justify-center z-20 transition-all duration-300">
-                        <div className="relative mb-4">
-                          <div className="absolute -inset-3 rounded-full border-4 border-transparent border-t-purple-600 border-r-pink-500 animate-[spin_1.5s_linear_infinite]" />
-                          <div className="absolute -inset-3 rounded-full border-4 border-transparent border-b-blue-500 border-l-indigo-600 animate-[spin_2s_linear_infinite_reverse]" />
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/40 animate-pulse">
-                            <Wand2 className="w-5 h-5 text-white" />
-                          </div>
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                        <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30 animate-bounce mb-3">
+                          <Wand2 className="w-6 h-6 text-white" />
                         </div>
-                        <h4 className="text-sm font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-pink-600 mb-1">
-                          Extracting Subject...
-                        </h4>
+                        <h4 className="text-sm font-bold text-slate-800">Removing Background...</h4>
+                        <p className="text-xs text-slate-500 mt-1">Processing edges and subject details</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Right Panel: Settings & Actions */}
-                <div className="w-full lg:w-[360px] flex flex-col gap-4 shrink-0">
-                  
+                {/* Right Area: Control Panel */}
+                <div className="w-full lg:w-80 flex flex-col gap-4">
                   {isEraserMode ? (
-                    <div className="bg-white/80 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-purple-500/5 border border-white p-5 md:p-6 transition-all duration-300 flex flex-col gap-6">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-purple-50 rounded-lg text-purple-600">
-                          <Eraser className="w-4 h-4" />
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900">Touch-up Brush Controls</h3>
+                    <div className="bg-white rounded-3xl border border-slate-200/80 p-5 flex flex-col gap-5">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <Eraser className="w-4 h-4 text-purple-600" />
+                        <h3 className="text-sm font-bold text-slate-900">Touch-up Settings</h3>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-gray-700">Brush Size</span>
-                          <span className="text-xs font-mono font-medium text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-md">{eraserSize}px</span>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                            <span>Brush Size</span>
+                            <span className="font-mono text-purple-600">{eraserSize}px</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="5" 
+                            max="100" 
+                            value={eraserSize} 
+                            onChange={(e) => setEraserSize(Number(e.target.value))} 
+                            className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-purple-600" 
+                          />
                         </div>
-                        <input 
-                          type="range" 
-                          min="5" 
-                          max="100" 
-                          value={eraserSize} 
-                          onChange={(e) => setEraserSize(Number(e.target.value))} 
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600" 
-                        />
+
+                        <div>
+                          <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                            <span>Zoom Level</span>
+                            <span className="font-mono text-purple-600">{eraserZoom}%</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="100" 
+                            max="300" 
+                            value={eraserZoom} 
+                            onChange={(e) => setEraserZoom(Number(e.target.value))} 
+                            className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-purple-600" 
+                          />
+                        </div>
                       </div>
 
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-gray-700">Canvas Zoom</span>
-                          <span className="text-xs font-mono font-medium text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md">{eraserZoom}%</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="100" 
-                          max="400" 
-                          value={eraserZoom} 
-                          onChange={(e) => setEraserZoom(Number(e.target.value))} 
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" 
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
                         <button 
                           onClick={undoEraser} 
                           disabled={eraserHistory.length <= 1} 
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl text-sm font-bold border border-gray-200 transition-colors disabled:opacity-50"
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-colors disabled:opacity-50"
                         >
-                          <Undo2 className="w-4 h-4" />
+                          <Undo2 className="w-3.5 h-3.5" />
                           Undo Stroke
                         </button>
                         <button 
                           onClick={() => setIsEraserMode(false)} 
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-500/20 hover:scale-[1.02] transition-all"
+                          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors"
                         >
-                          <Check className="w-4 h-4" />
-                          Done Erasing
+                          <Check className="w-3.5 h-3.5" />
+                          Apply Edits
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white/80 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-purple-500/5 border border-white p-5 md:p-6 transition-all duration-300">
-                      <div className="flex items-center gap-2 mb-5">
-                        <div className="p-1.5 bg-purple-50 rounded-lg text-purple-600">
-                          <Palette className="w-4 h-4" />
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900">Background Settings</h3>
+                    <div className="bg-white rounded-3xl border border-slate-200/80 p-5 flex flex-col gap-5">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <Palette className="w-4 h-4 text-purple-600" />
+                        <h3 className="text-sm font-bold text-slate-900">Background Options</h3>
                       </div>
 
-                      <div className="space-y-6">
-                        
-                        <div className={`transition-opacity duration-300 ${!processedImage ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">Add Solid Color</label>
-                          <div className="grid grid-cols-4 gap-2.5">
-                            {presetColors.map((c) => (
+                      <div className={`space-y-4 ${!processedImage ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">Preset Color</label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {PRESET_COLORS.map((c) => (
                               <button
                                 key={c.id}
                                 onClick={() => setBgColor(c.hex)}
                                 title={c.label}
-                                className={`
-                                  relative w-full aspect-square rounded-xl border-2 transition-all duration-200 hover:scale-105 shadow-sm
-                                  ${bgColor === c.hex ? 'border-purple-600 scale-105 shadow-md ring-2 ring-purple-600/20' : 'border-gray-200/80 hover:border-purple-300'}
-                                `}
+                                className={`w-full aspect-square rounded-xl border-2 transition-all ${
+                                  bgColor === c.hex ? 'border-purple-600 scale-105 shadow-sm' : 'border-slate-200 hover:border-slate-300'
+                                }`}
                                 style={
                                   c.hex === 'transparent' 
                                     ? { 
-                                        backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%, #e5e7eb), repeating-linear-gradient(45deg, #e5e7eb 25%, #ffffff 25%, #ffffff 75%, #e5e7eb 75%, #e5e7eb)', 
-                                        backgroundPosition: '0 0, 5px 5px', 
-                                        backgroundSize: '10px 10px' 
+                                        backgroundImage: 'repeating-linear-gradient(45deg, #cbd5e1 25%, transparent 25%, transparent 75%, #cbd5e1 75%, #cbd5e1), repeating-linear-gradient(45deg, #cbd5e1 25%, #ffffff 25%, #ffffff 75%, #cbd5e1 75%, #cbd5e1)', 
+                                        backgroundPosition: '0 0, 4px 4px', 
+                                        backgroundSize: '8px 8px' 
                                       }
                                     : { backgroundColor: c.hex }
                                 }
                               />
                             ))}
                             
-                            <div 
-                              title="Custom Color"
-                              className={`
-                                relative col-span-2 w-full h-full rounded-xl border-2 transition-all duration-200 overflow-hidden flex items-center justify-center group shadow-sm
-                                ${bgColor === customColor ? 'border-purple-600 shadow-md ring-2 ring-purple-600/20' : 'border-gray-300 hover:border-purple-400'}
-                              `}
-                            >
+                            <div className="relative col-span-2 w-full h-full rounded-xl border-2 border-slate-200 hover:border-slate-300 overflow-hidden flex items-center justify-center">
                               <input
                                 type="color"
                                 value={customColor}
@@ -497,10 +486,10 @@ const BackgroundRemover = () => {
                                   setCustomColor(e.target.value)
                                   setBgColor(e.target.value)
                                 }}
-                                className="absolute inset-0 w-[200%] h-[200%] -top-[50%] -left-[50%] cursor-pointer opacity-0 z-10"
+                                className="absolute inset-0 w-[200%] h-[200%] -top-[50%] -left-[50%] cursor-pointer opacity-0"
                               />
-                              <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ backgroundColor: customColor }} />
-                              <span className={`z-0 font-bold text-xs pointer-events-none mix-blend-difference ${bgColor === customColor ? 'text-white' : 'text-gray-400'}`}>
+                              <div className="absolute inset-0" style={{ backgroundColor: customColor }} />
+                              <span className="relative z-10 text-[10px] font-bold text-white drop-shadow-md">
                                 Custom
                               </span>
                             </div>
@@ -508,41 +497,39 @@ const BackgroundRemover = () => {
                         </div>
 
                         {processedImage && (
-                          <div className="pt-2 border-t border-gray-100">
-                            <button
-                              onClick={() => { setIsEraserMode(true); setActiveView('removed'); }}
-                              className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-white border-2 border-purple-100 text-purple-700 hover:bg-purple-50 hover:border-purple-200 font-bold text-xs rounded-xl transition-all shadow-sm"
-                            >
-                              <Eraser className="w-4 h-4 text-purple-600" />
-                              Touch-up (Manual Eraser Tool)
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => { setIsEraserMode(true); setActiveView('removed'); }}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200/60 transition-colors"
+                          >
+                            <Eraser className="w-3.5 h-3.5" />
+                            Refine Edges Manually
+                          </button>
                         )}
-
                       </div>
 
                       <button
                         onClick={handleRemoveBackground}
                         disabled={isProcessing || !!processedImage}
-                        className="mt-6 w-full bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-purple-500/30 disabled:hover:scale-100"
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl font-bold text-xs shadow-md shadow-purple-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                       >
                         <Wand2 className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
-                        {isProcessing ? 'Processing Magic...' : processedImage ? 'Background Removed' : 'Remove Background Now'}
+                        {isProcessing ? 'Processing Image...' : processedImage ? 'Background Removed' : 'Remove Background'}
                       </button>
                     </div>
                   )}
 
+                  {/* Export Box */}
                   {processedImage && !isEraserMode && (
-                    <div className="bg-white/80 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2rem] shadow-xl shadow-green-500/5 border border-white p-5 animate-in slide-in-from-bottom-4 fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-                      <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-700 bg-emerald-50 py-2.5 rounded-xl mb-3 border border-emerald-100">
-                        <CheckCircle className="w-4 h-4 text-emerald-500" />
-                        Ready to Download!
+                    <div className="bg-white rounded-3xl border border-slate-200/80 p-5 flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 py-2 px-3 rounded-xl border border-emerald-100">
+                        <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>Ready for export</span>
                       </div>
                       <button
                         onClick={downloadImage}
-                        className="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-gray-900/20 hover:shadow-gray-900/40 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
                       >
-                        <Download className="w-4 h-4 text-gray-300" />
+                        <Download className="w-4 h-4 text-slate-300" />
                         Download {bgColor === 'transparent' ? 'PNG' : 'JPG'}
                       </button>
                     </div>
@@ -552,8 +539,87 @@ const BackgroundRemover = () => {
               </div>
             )}
           </div>
+        </main>
 
-        </div>
+        {/* --- EDUCATIONAL BLOG & FAQ SECTION (SEO BOOST) --- */}
+        <section className="bg-white border-t border-slate-200/80 py-16 px-4">
+          <div className="max-w-4xl mx-auto space-y-12">
+            
+            {/* Guide Intro */}
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-4">
+                How AI Background Removal Works
+              </h2>
+              <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                Automated image background isolation relies on deep convolutional neural networks trained on object segmentation. Instead of relying solely on contrast differences or high-contrast chromatic keys (like traditional green-screen techniques), AI vision models evaluate localized visual cues—such as hair textures, lighting boundaries, and depth planes—to generate a accurate opacity mask.
+              </p>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Whether you are optimizing product photography for e-commerce platforms or isolating subjects for composite graphic design, automated background removal speeds up asset preparation from minutes to seconds.
+              </p>
+            </div>
+
+            {/* How-To Steps */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                Step-by-Step Isolation Process
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-extrabold text-purple-600 font-mono">STEP 01</span>
+                  <h4 className="text-xs font-bold text-slate-900 mt-1 mb-1">Upload Source</h4>
+                  <p className="text-[11px] text-slate-500">Drop your JPG, PNG, or WebP file into the uploader area.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-extrabold text-purple-600 font-mono">STEP 02</span>
+                  <h4 className="text-xs font-bold text-slate-900 mt-1 mb-1">Automated Cutout</h4>
+                  <p className="text-[11px] text-slate-500">The segmentation network processes edges and generates an alpha matte.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-xs font-extrabold text-purple-600 font-mono">STEP 03</span>
+                  <h4 className="text-xs font-bold text-slate-900 mt-1 mb-1">Refine & Export</h4>
+                  <p className="text-[11px] text-slate-500">Fine-tune stray pixels using the manual brush and download a high-res PNG.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* FAQ Accordion Grid */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600" />
+                Frequently Asked Questions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Which file formats support transparent backgrounds?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    To preserve alpha transparency, export your final image in **PNG** or **WebP** format. Exporting as a JPEG will automatically fill empty regions with a default background (usually white).
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Are uploaded images saved or used for AI training?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    All processing takes place within secure temporary execution sessions. Raw and processed images are purged after your session ends.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">How do I fix rough edges or missed background details?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Click the **Touch-up (Manual Eraser Tool)** button after generating your initial cutout. Adjust brush size and zoom level to clean up stray background elements manually.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Is there a maximum image resolution limit?</h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Images up to 25 Megapixels (5000x5000 resolution) are processed cleanly without downscaling dimensions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
       </div>
     </>
   )
